@@ -36,3 +36,172 @@
     transform: rotate(360deg);
   }
 }
+/* Add these styles to the existing App.css */
+
+/* Submit Section */
+.submit-section {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.submit-btn.active {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4);
+}
+
+.submit-btn.active:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(72, 187, 120, 0.5);
+}
+
+.submit-btn.active:active {
+  transform: translateY(0);
+}
+
+.submit-btn.disabled {
+  background: #e2e8f0;
+  color: #a0aec0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.submit-btn.disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.submit-btn:disabled {
+  cursor: not-allowed;
+}
+
+.submit-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #fc8181;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+/* Loading/Submitting State */
+.submit-btn .spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Success Animation for Submit */
+@keyframes submitSuccess {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.submit-btn.active:not(:disabled):active {
+  animation: submitSuccess 0.3s ease;
+}
+
+/* Status Badge for Complete Registration */
+.registration-complete {
+  background: rgba(198, 246, 213, 0.9);
+  border: 2px solid #48bb78;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.registration-complete h3 {
+  color: #276749;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.registration-complete p {
+  color: #276749;
+  font-size: 0.9rem;
+}
+
+/* Confetti or Celebration Effect */
+@keyframes celebration {
+  0% { transform: scale(0) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1.5) rotate(180deg); opacity: 0; }
+}
+
+.celebration-emoji {
+  display: inline-block;
+  animation: celebration 0.8s ease forwards;
+}
+
+/* Responsive Submit Button */
+@media (max-width: 640px) {
+  .submit-btn {
+    font-size: 0.9rem;
+    padding: 12px;
+  }
+  
+  .submit-hint {
+    font-size: 0.7rem;
+  }
+}
+
+/* Disabled state for all buttons during submission */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Loading overlay for the form */
+.form-loading {
+  position: relative;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.form-loading::after {
+  content: 'Processing...';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 20px 40px;
+  border-radius: 12px;
+  font-weight: 600;
+  color: #667eea;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}

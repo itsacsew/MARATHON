@@ -32,9 +32,8 @@ const Register = () => {
     try {
       setError('');
       setLoading(true);
-      const user = await signup(email, password, displayName, isAdmin);
+      await signup(email, password, displayName, isAdmin); // Removed unused 'user' variable
       
-      // If admin, navigate to admin dashboard
       if (isAdmin) {
         navigate('/admin');
       } else {

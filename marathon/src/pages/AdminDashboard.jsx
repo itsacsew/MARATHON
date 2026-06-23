@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
-  const { currentUser, userData, logout, getAllUsers, getAllRegistrations } = useAuth();
+  const { userData, logout, getAllUsers, getAllRegistrations } = useAuth(); // Removed unused 'currentUser'
   const [registrations, setRegistrations] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,30 +14,26 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('registrations');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (userData?.isAdmin) {
-      fetchAllData();
-    }
-  }, [userData]);
-
-  const fetchAllData = async () => {
+  // Wrap fetchAllData with useCallback to prevent unnecessary re-renders
+  const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Get all users
       const allUsers = await getAllUsers();
       setUsers(allUsers);
-      
-      // Get all registrations
       const allRegistrations = await getAllRegistrations();
       setRegistrations(allRegistrations);
-      
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAllUsers, getAllRegistrations]);
+
+  useEffect(() => {
+    if (userData?.isAdmin) {
+      fetchAllData();
+    }
+  }, [userData, fetchAllData]);
 
   const handleLogout = async () => {
     try {
@@ -156,6 +152,7 @@ const AdminDashboard = () => {
         )}
       </div>
 
+      {/* Rest of the component remains the same... */}
       {/* Registrations Table */}
       {activeTab === 'registrations' && (
         <div className="admin-table-container">

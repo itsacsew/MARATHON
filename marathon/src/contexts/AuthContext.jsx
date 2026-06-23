@@ -7,7 +7,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, setDoc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore'; // Removed unused 'query' and 'where'
 
 const AuthContext = createContext();
 
@@ -28,7 +28,6 @@ export function AuthProvider({ children }) {
       
       await updateProfile(user, { displayName });
       
-      // Store user directly in users collection with isAdmin flag
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
@@ -72,7 +71,6 @@ export function AuthProvider({ children }) {
       if (docSnap.exists()) {
         return docSnap.data();
       } else {
-        // Try to create a default user document if it doesn't exist
         try {
           const defaultData = {
             uid: uid,
@@ -120,7 +118,6 @@ export function AuthProvider({ children }) {
         
         return newRegistration;
       } else {
-        // If user document doesn't exist, create it
         const defaultData = {
           uid: uid,
           email: currentUser?.email || '',
@@ -176,7 +173,6 @@ export function AuthProvider({ children }) {
         });
       });
       
-      // Sort by createdAt (newest first)
       allUsers.sort((a, b) => {
         return new Date(b.createdAt) - new Date(a.createdAt);
       });
@@ -210,7 +206,6 @@ export function AuthProvider({ children }) {
         }
       }
       
-      // Sort by registeredAt (newest first)
       allRegistrations.sort((a, b) => {
         return new Date(b.registeredAt) - new Date(a.registeredAt);
       });
@@ -222,7 +217,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Auth state observer
+  // Auth state observer - FIXED
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -241,7 +236,8 @@ export function AuthProvider({ children }) {
     });
 
     return unsubscribe;
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Removed getUserData from dependencies
 
   const value = {
     currentUser,

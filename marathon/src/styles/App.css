@@ -69,9 +69,6 @@ body {
   justify-content: center;
   align-items: center;
   padding: 20px;
-  background: radial-gradient(ellipse at 30% 20%, rgba(237, 219, 11, 0.15) 0%, transparent 50%),
-              radial-gradient(ellipse at 70% 80%, rgba(0, 168, 171, 0.15) 0%, transparent 50%),
-              linear-gradient(160deg, #2A499B 0%, #0A70BA 40%, #00A8AB 70%, #68B42D 100%);
   width: 100%;
 }
 

@@ -191,7 +191,7 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
           <div className="upload-container">
             <p className="upload-label">Upload Payment Receipt</p>
             
-            {/* File Input */}
+            {/* File Input - FIXED: Removed capture attribute */}
             <div className="file-input-wrapper">
               <input
                 type="file"
@@ -200,7 +200,7 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
                 accept="image/*"
                 className="file-input"
                 id="file-upload"
-                capture="environment"
+                // REMOVED: capture="environment" - This was causing the camera to open
               />
               <label htmlFor="file-upload" className="file-input-label">
                 <span className="file-icon">📁</span>

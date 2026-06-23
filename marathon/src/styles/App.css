@@ -2588,3 +2588,229 @@ button:disabled {
     transform: scale(0.97) !important;
   }
 }
+/* QR Code Container */
+.qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+}
+
+/* QR Wrapper */
+.qr-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* QR Code - LARGE */
+.qr-code-large {
+  width: 280px;
+  height: 280px;
+  object-fit: contain;
+  border-radius: 12px;
+  display: block;
+  margin: 0 auto;
+  background: white;
+  padding: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.qr-code-large:hover {
+  transform: scale(1.02);
+}
+
+/* QR Download Buttons Container */
+.qr-download-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 5px 0;
+}
+
+/* Download Buttons */
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.download-simple {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.download-simple:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.download-with-details {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.download-with-details:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+}
+
+.download-icon {
+  font-size: 18px;
+}
+
+/* QR Instruction */
+.qr-instruction {
+  font-size: 13px;
+  color: #888;
+  margin: 5px 0 0 0;
+  text-align: center;
+}
+
+/* Fullscreen QR Overlay */
+.qr-fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.qr-fullscreen-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 30px;
+  background: white;
+  border-radius: 20px;
+  max-width: 90%;
+  max-height: 90%;
+}
+
+.qr-fullscreen-image {
+  max-width: 500px;
+  max-height: 500px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.qr-fullscreen-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.fullscreen-download {
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+.qr-fullscreen-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  color: #333;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  font-size: 28px;
+  padding: 5px 15px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.qr-fullscreen-close:hover {
+  background: rgba(0, 0, 0, 0.2);
+  transform: rotate(90deg);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  .qr-code-large {
+    width: 220px;
+    height: 220px;
+    padding: 10px;
+  }
+  
+  .qr-download-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .download-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+  }
+  
+  .qr-fullscreen-image {
+    max-width: 300px;
+    max-height: 300px;
+  }
+  
+  .qr-fullscreen-content {
+    padding: 20px;
+  }
+  
+  .qr-fullscreen-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .fullscreen-download {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Account Details */
+.account-details {
+  margin-top: 15px;
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  text-align: center;
+  width: 100%;
+  max-width: 300px;
+}
+
+.account-name {
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 4px 0;
+  font-size: 15px;
+}
+
+.account-number {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  font-family: monospace;
+  letter-spacing: 1px;
+}

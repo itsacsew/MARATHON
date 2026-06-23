@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import html2pdf from 'html2pdf.js';
 
 const AdminDashboard = () => {
   const { userData, logout, getAllUsers, getAllRegistrations } = useAuth();
@@ -9,13 +10,14 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [filterGender, setFilterGender] = useState('all'); // NEW: Gender filter
+  const [filterGender, setFilterGender] = useState('all');
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState('registrations');
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfRegistration, setPdfRegistration] = useState(null);
   const navigate = useNavigate();
 
-  // Wrap fetchAllData with useCallback to prevent unnecessary re-renders
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
@@ -55,13 +57,24 @@ const AdminDashboard = () => {
     setSelectedRegistration(null);
   };
 
-  // Filter registrations - ADDED GENDER FILTER
+  const handleDownloadPDF = (registration) => {
+    setPdfRegistration(registration);
+    setShowPdfModal(true);
+  };
+
+  const handleClosePdfModal = () => {
+    setShowPdfModal(false);
+    setPdfRegistration(null);
+  };
+
+  // Filter registrations
   const filteredRegistrations = registrations.filter(reg => {
     const matchesSearch = 
       reg.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       reg.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       reg.eventName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reg.category?.toLowerCase().includes(searchTerm.toLowerCase());
+      reg.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reg.referenceNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = filterCategory === 'all' || reg.categoryId === filterCategory;
     const matchesGender = filterGender === 'all' || reg.gender === filterGender;
@@ -77,9 +90,28 @@ const AdminDashboard = () => {
 
   // Get unique categories for filter
   const categories = [...new Set(registrations.map(reg => reg.categoryId))];
-  
-  // Get unique genders for filter
   const genders = [...new Set(registrations.map(reg => reg.gender))];
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-PH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Get gender label
+  const getGenderLabel = (gender) => {
+    if (gender === 'men') return '👨 Male';
+    if (gender === 'women') return '👩 Female';
+    return gender || 'N/A';
+  };
 
   if (loading) {
     return (
@@ -129,7 +161,7 @@ const AdminDashboard = () => {
         <div className="search-box">
           <input
             type="text"
-            placeholder={activeTab === 'registrations' ? "Search by name, email, event..." : "Search users..."}
+            placeholder={activeTab === 'registrations' ? "Search by name, email, event, reference #..." : "Search users..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -156,7 +188,6 @@ const AdminDashboard = () => {
               </select>
             </div>
 
-            {/* NEW: Gender Filter Dropdown */}
             <div className="filter-box">
               <select
                 value={filterGender}
@@ -175,8 +206,7 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      {/* Rest of the component remains the same... */}
-      {/* Registrations Table - ADDED GENDER COLUMN */}
+      {/* Registrations Table - WITH Reference Number and PDF Button */}
       {activeTab === 'registrations' && (
         <div className="admin-table-container">
           <table className="admin-table">
@@ -190,6 +220,7 @@ const AdminDashboard = () => {
                 <th>Event</th>
                 <th>Distance</th>
                 <th>Fee</th>
+                <th>Reference #</th>
                 <th>Payment</th>
                 <th>Status</th>
                 <th>Date</th>
@@ -199,7 +230,7 @@ const AdminDashboard = () => {
             <tbody>
               {filteredRegistrations.length === 0 ? (
                 <tr>
-                  <td colSpan="12" className="no-data">
+                  <td colSpan="13" className="no-data">
                     No registrations found
                   </td>
                 </tr>
@@ -223,6 +254,11 @@ const AdminDashboard = () => {
                     <td>{reg.distance || 'N/A'}</td>
                     <td className="fee-cell">₱{reg.fee?.toLocaleString() || '0'}</td>
                     <td>
+                      <span className="reference-number-cell">
+                        {reg.referenceNumber || 'N/A'}
+                      </span>
+                    </td>
+                    <td>
                       <span className={`payment-badge ${reg.paymentMethod}`}>
                         {reg.paymentMethod?.toUpperCase() || 'N/A'}
                       </span>
@@ -236,12 +272,22 @@ const AdminDashboard = () => {
                       {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : 'N/A'}
                     </td>
                     <td>
-                      <button 
-                        className="view-btn"
-                        onClick={() => handleViewDetails(reg)}
-                      >
-                        View
-                      </button>
+                      <div className="action-buttons">
+                        <button 
+                          className="view-btn"
+                          onClick={() => handleViewDetails(reg)}
+                          title="View Details"
+                        >
+                          👁️
+                        </button>
+                        <button 
+                          className="pdf-btn"
+                          onClick={() => handleDownloadPDF(reg)}
+                          title="Download PDF"
+                        >
+                          📄
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -295,7 +341,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Detail Modal - ADDED Gender field */}
+      {/* Detail Modal */}
       {showModal && selectedRegistration && (
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -313,10 +359,12 @@ const AdminDashboard = () => {
               </div>
               <div className="detail-item">
                 <label>Gender</label>
-                <span>
-                  {selectedRegistration.gender === 'men' ? '👨 Men' : 
-                   selectedRegistration.gender === 'women' ? '👩 Women' : 
-                   'N/A'}
+                <span>{getGenderLabel(selectedRegistration.gender)}</span>
+              </div>
+              <div className="detail-item">
+                <label>Reference Number</label>
+                <span className="reference-number-text">
+                  {selectedRegistration.referenceNumber || 'N/A'}
                 </span>
               </div>
               <div className="detail-item">
@@ -394,9 +442,115 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <button className="modal-close-btn" onClick={handleCloseModal}>
-              Close
-            </button>
+            <div className="modal-actions">
+              <button 
+                className="pdf-btn-modal"
+                onClick={() => {
+                  handleCloseModal();
+                  handleDownloadPDF(selectedRegistration);
+                }}
+              >
+                📄 Download PDF
+              </button>
+              <button className="modal-close-btn" onClick={handleCloseModal}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Download Modal */}
+      {showPdfModal && pdfRegistration && (
+        <div className="modal-overlay" onClick={handleClosePdfModal}>
+          <div className="modal-content pdf-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={handleClosePdfModal}>×</button>
+            <h2>📄 Download PDF</h2>
+            <p className="pdf-preview-subtitle">Preview and download registration details as PDF</p>
+            
+            {/* PDF Content Preview */}
+            <div className="pdf-preview-content">
+              <div className="pdf-preview-header">
+                <h3>🏃 Liloan Love the Life</h3>
+                <h4>Registration Confirmation</h4>
+                <div className="pdf-preview-divider"></div>
+              </div>
+              
+              <div className="pdf-preview-body">
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Name:</span>
+                  <span className="pdf-preview-value">{pdfRegistration.userName || 'N/A'}</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Gender:</span>
+                  <span className="pdf-preview-value">{getGenderLabel(pdfRegistration.gender)}</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Reference Number:</span>
+                  <span className="pdf-preview-value reference-number-preview">{pdfRegistration.referenceNumber || 'N/A'}</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Date of Payment:</span>
+                  <span className="pdf-preview-value">{formatDate(pdfRegistration.registeredAt)}</span>
+                </div>
+                <div className="pdf-preview-divider"></div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Event:</span>
+                  <span className="pdf-preview-value">{pdfRegistration.eventName || 'N/A'}</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Category:</span>
+                  <span className="pdf-preview-value">{pdfRegistration.category || 'N/A'}</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Distance:</span>
+                  <span className="pdf-preview-value">{pdfRegistration.distance || 'N/A'}</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Fee:</span>
+                  <span className="pdf-preview-value fee-amount">₱{pdfRegistration.fee?.toLocaleString() || '0'}.00</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Payment Method:</span>
+                  <span className="pdf-preview-value">{pdfRegistration.paymentMethod?.toUpperCase() || 'N/A'}</span>
+                </div>
+                <div className="pdf-preview-divider"></div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Status:</span>
+                  <span className="pdf-preview-value status-completed">✅ COMPLETED</span>
+                </div>
+                <div className="pdf-preview-row">
+                  <span className="pdf-preview-label">Registration ID:</span>
+                  <span className="pdf-preview-value">{pdfRegistration.id || 'N/A'}</span>
+                </div>
+              </div>
+              
+              <div className="pdf-preview-footer">
+                <p>Thank you for registering! 🏃</p>
+                <p className="pdf-preview-footer-small">Liloan Love the Life • 2026</p>
+              </div>
+            </div>
+
+            <div className="pdf-preview-actions">
+              <button className="download-pdf-btn" onClick={() => {
+                // Generate and download PDF
+                const element = document.querySelector('.pdf-preview-content');
+                const opt = {
+                  margin:        [15, 15, 15, 15],
+                  filename:     `registration-${pdfRegistration.referenceNumber || 'confirmation'}.pdf`,
+                  image:        { type: 'jpeg', quality: 0.98 },
+                  html2canvas:  { scale: 2, useCORS: true, logging: false },
+                  jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+                html2pdf().set(opt).from(element).save();
+              }}>
+                <span className="pdf-icon">⬇️</span>
+                Download PDF
+              </button>
+              <button className="done-btn" onClick={handleClosePdfModal}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

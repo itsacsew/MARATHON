@@ -11,6 +11,7 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showFullQr, setShowFullQr] = useState(false);
+  const [referenceNumber, setReferenceNumber] = useState(''); // NEW: Reference Number
   const fileInputRef = useRef(null);
   const qrImageRef = useRef(null);
 
@@ -51,17 +52,12 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
   // Function to download QR code
   const downloadQRCode = () => {
     try {
-      // Create a temporary anchor element
       const link = document.createElement('a');
       link.href = qrImage;
-      
-      // Create filename with payment method and date
       const date = new Date();
       const dateStr = date.toISOString().split('T')[0];
       const fileName = `qr-code-${paymentMethod}-${dateStr}.png`;
       link.download = fileName;
-      
-      // Append to body, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -75,43 +71,34 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
   // Function to download QR code with watermark/text
   const downloadQRCodeWithText = () => {
     try {
-      // Create a canvas to add text/watermark
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      
-      // Load the QR image
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = qrImage;
       
       img.onload = () => {
-        // Set canvas size (larger for better quality)
         const size = 600;
         canvas.width = size;
-        canvas.height = size + 60; // Extra space for text
+        canvas.height = size + 60;
         
-        // Draw white background
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw QR code (centered)
         const qrSize = size - 40;
         const offsetX = 20;
         const offsetY = 20;
         ctx.drawImage(img, offsetX, offsetY, qrSize, qrSize);
         
-        // Add text below QR code
         ctx.fillStyle = '#333333';
         ctx.font = 'bold 24px Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`${methodName} - Scan to Pay`, canvas.width / 2, size + 40);
         
-        // Add smaller text with account name
         ctx.font = '18px Arial, sans-serif';
         ctx.fillStyle = '#666666';
         ctx.fillText(account.name, canvas.width / 2, size + 65);
         
-        // Convert to PNG and download
         const link = document.createElement('a');
         link.download = `qr-code-${paymentMethod}-with-details.png`;
         link.href = canvas.toDataURL('image/png');
@@ -121,12 +108,10 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
       };
       
       img.onerror = () => {
-        // Fallback to simple download if canvas fails
         downloadQRCode();
       };
     } catch (error) {
       console.error('Download with text failed:', error);
-      // Fallback to simple download
       downloadQRCode();
     }
   };
@@ -134,14 +119,12 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check if file is an image
       if (!file.type.startsWith('image/')) {
         setErrorMessage('Please select an image file (JPEG, PNG, etc.)');
         setTimeout(() => setErrorMessage(''), 3000);
         return;
       }
       
-      // Check file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setErrorMessage('File size must be less than 5MB');
         setTimeout(() => setErrorMessage(''), 3000);
@@ -168,16 +151,15 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
     setUploading(true);
     setErrorMessage('');
     try {
-      // Simulate upload delay
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
       setUploadSuccess(true);
       
       if (onFileUpload) {
         onFileUpload({
           file: selectedFile,
           preview: previewUrl,
-          paymentMethod: paymentMethod
+          paymentMethod: paymentMethod,
+          referenceNumber: referenceNumber // NEW: Include reference number
         });
       }
       
@@ -197,6 +179,12 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
       return;
     }
 
+    if (!referenceNumber.trim()) {
+      setErrorMessage('Please enter your reference number');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage('');
     try {
@@ -206,19 +194,19 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
         await onSubmit({
           paymentMethod: paymentMethod,
           receiptFile: selectedFile,
-          receiptPreview: previewUrl
+          receiptPreview: previewUrl,
+          referenceNumber: referenceNumber // NEW: Include reference number
         });
       }
       
-      // Reset all states
       setSelectedFile(null);
       setPreviewUrl(null);
       setUploadSuccess(false);
+      setReferenceNumber(''); // NEW: Reset reference number
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
       
-      // Close the modal after successful submission
       onClose();
       
     } catch (error) {
@@ -236,6 +224,7 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
     setUploadSuccess(false);
     setErrorMessage('');
     setShowFullQr(false);
+    setReferenceNumber(''); // NEW: Reset reference number
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -255,7 +244,6 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
           )}
           
           <div className="qr-container">
-            {/* QR CODE - LARGER WITH DOWNLOAD BUTTONS */}
             <div className="qr-wrapper">
               <img 
                 src={qrImage} 
@@ -266,7 +254,6 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
                 ref={qrImageRef}
               />
               
-              {/* Download Buttons */}
               <div className="qr-download-buttons">
                 <button 
                   className="download-btn download-simple"
@@ -276,25 +263,36 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
                   <span className="download-icon">⬇️</span>
                   Download QR
                 </button>
-                <button 
-                  className="download-btn download-with-details"
-                  onClick={downloadQRCodeWithText}
-                  title="Download QR Code with Account Details"
-                >
-                  <span className="download-icon">📄</span>
-                  Download with Details
-                </button>
               </div>
-              
-              <p className="qr-instruction">Tap QR code to enlarge | Click Download to save</p>
             </div>
             
-            {/* Account Details */}
             <div className="account-details">
               <p className="account-name">{account.name}</p>
               <p className="account-number">{account.account}</p>
             </div>
           </div>
+          <div>
+
+          </div>
+          {/* NEW: Reference Number Field */}
+              <div className="reference-number-container">
+                <label className="reference-label">
+                  <span className="reference-icon">🔢</span>
+                  Reference Number
+                  <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="reference-input"
+                  placeholder="Enter your payment reference number (e.g., GCASH-1234567890)"
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                  disabled={uploadSuccess || isSubmitting}
+                />
+                <p className="reference-hint">
+                  Enter the reference number from your payment transaction
+                </p>
+              </div>
 
           {/* File Upload Section */}
           <div className="file-upload-section">
@@ -304,6 +302,8 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
             
             <div className="upload-container">
               <p className="upload-label">Upload Payment Receipt</p>
+              
+              
               
               {/* File Input */}
               <div className="file-input-wrapper">
@@ -381,9 +381,9 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
           {/* Submit Button */}
           <div className="submit-section">
             <button 
-              className={`submit-btn ${uploadSuccess ? 'active' : 'disabled'}`}
+              className={`submit-btn ${uploadSuccess && referenceNumber.trim() ? 'active' : 'disabled'}`}
               onClick={handleSubmit}
-              disabled={!uploadSuccess || isSubmitting}
+              disabled={!uploadSuccess || !referenceNumber.trim() || isSubmitting}
             >
               {isSubmitting ? (
                 <>
@@ -399,6 +399,9 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
             )}
             {!uploadSuccess && !selectedFile && (
               <p className="submit-hint">Please select and upload your receipt</p>
+            )}
+            {uploadSuccess && !referenceNumber.trim() && (
+              <p className="submit-hint">⚠️ Please enter your reference number</p>
             )}
           </div>
 
@@ -419,12 +422,6 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
                 onClick={downloadQRCode}
               >
                 ⬇️ Download QR
-              </button>
-              <button 
-                className="download-btn download-with-details fullscreen-download"
-                onClick={downloadQRCodeWithText}
-              >
-                📄 Download with Details
               </button>
             </div>
             <button className="qr-fullscreen-close" onClick={() => setShowFullQr(false)}>✕</button>

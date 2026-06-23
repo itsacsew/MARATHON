@@ -5,6 +5,7 @@ import EventModal from './EventModal';
 import FeeDisplay from './FeeDisplay';
 import PaymentButtons from './PaymentButtons';
 import PaymentModal from './PaymentModal';
+import SuccessModal from './SuccessModal'; // NEW: Import SuccessModal
 import { EVENT_CONFIG, GENDER_OPTIONS } from '../config/eventConfig';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -22,19 +23,22 @@ const RegistrationForm = () => {
     name: '',
     category: '',
     event: '',
-    gender: ''  // Add gender to form data
+    gender: ''
   });
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedGender, setSelectedGender] = useState(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false); // NEW: Success modal state
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [referenceNumber, setReferenceNumber] = useState('');
+  const [registrationData, setRegistrationData] = useState(null); // NEW: Store registration data for PDF
 
   const { currentUser, saveRegistration, userData } = useAuth();
 
@@ -84,10 +88,14 @@ const RegistrationForm = () => {
     setSelectedPayment(paymentId);
     setIsPaymentModalOpen(true);
     setUploadedFile(null);
+    setReferenceNumber('');
   };
 
   const handleFileUpload = (fileData) => {
     setUploadedFile(fileData);
+    if (fileData.referenceNumber) {
+      setReferenceNumber(fileData.referenceNumber);
+    }
   };
 
   const handleFinalSubmit = async (paymentData) => {
@@ -103,7 +111,7 @@ const RegistrationForm = () => {
         throw new Error('Event not found');
       }
 
-      const registrationData = {
+      const registrationDataToSave = {
         userName: formData.name || userData?.displayName || 'Anonymous',
         gender: selectedGender,
         category: selectedCategoryData.name,
@@ -113,6 +121,7 @@ const RegistrationForm = () => {
         distance: eventDetails.distance,
         fee: eventDetails.fee,
         paymentMethod: paymentData.paymentMethod,
+        referenceNumber: paymentData.referenceNumber || '',
         hasReceipt: true,
         receiptFileName: paymentData.receiptFile?.name || 'receipt.jpg',
         receiptPreview: paymentData.receiptPreview || null,
@@ -120,11 +129,20 @@ const RegistrationForm = () => {
         registeredAt: new Date().toISOString()
       };
       
-      await saveRegistration(currentUser.uid, registrationData);
+      await saveRegistration(currentUser.uid, registrationDataToSave);
       
-      setShowSuccess(true);
-      setSaveMessage('✅ Successfully Registered!');
+      // Store registration data for success modal
+      setRegistrationData({
+        ...registrationDataToSave,
+        name: formData.name || userData?.displayName || 'Anonymous',
+        paymentDate: new Date().toISOString()
+      });
       
+      // Close payment modal and open success modal
+      setIsPaymentModalOpen(false);
+      setIsSuccessModalOpen(true);
+      
+      // Reset form after modal is shown
       setTimeout(() => {
         setFormData({
           name: '',
@@ -137,10 +155,10 @@ const RegistrationForm = () => {
         setSelectedGender(null);
         setSelectedPayment(null);
         setUploadedFile(null);
+        setReferenceNumber('');
         setShowSuccess(false);
         setSaveMessage('');
-        setIsPaymentModalOpen(false);
-      }, 2500);
+      }, 500);
       
     } catch (error) {
       console.error('Error submitting registration:', error);
@@ -157,6 +175,12 @@ const RegistrationForm = () => {
 
   const closePaymentModal = () => {
     setIsPaymentModalOpen(false);
+    setReferenceNumber('');
+  };
+
+  const closeSuccessModal = () => {
+    setIsSuccessModalOpen(false);
+    setRegistrationData(null);
   };
 
   const handleBackToCategory = () => {
@@ -202,7 +226,7 @@ const RegistrationForm = () => {
           </div>
 
           <div style={styles.formContent}>
-            {/* Success Message */}
+            {/* Success Message - Now only shows briefly before modal */}
             {showSuccess && (
               <div style={styles.successMessage}>
                 <div style={styles.successContent}>
@@ -253,7 +277,7 @@ const RegistrationForm = () => {
               </div>
             </div>
 
-            {/* Gender Selection - Below Name, Above Category */}
+            {/* Gender Selection */}
             {!selectedCategory && !showSuccess && (
               <div style={styles.genderSection}>
                 <div style={styles.sectionHeader}>
@@ -367,7 +391,7 @@ const RegistrationForm = () => {
         </div>
       </div>
 
-      {/* Modals - Rendered outside using React Portal */}
+      {/* Modals */}
       {selectedCategoryData && ReactDOM.createPortal(
         <EventModal
           isOpen={isEventModalOpen}
@@ -391,12 +415,22 @@ const RegistrationForm = () => {
         />,
         document.body
       )}
+
+      {/* NEW: Success Modal */}
+      {ReactDOM.createPortal(
+        <SuccessModal
+          isOpen={isSuccessModalOpen}
+          onClose={closeSuccessModal}
+          registrationData={registrationData}
+        />,
+        document.body
+      )}
     </>
   );
 };
 
 // ============================================================
-// STYLES - Professional 3D Design with Mobile Responsiveness
+// STYLES - Same as before
 // ============================================================
 
 const styles = {
@@ -533,28 +567,6 @@ const styles = {
     textAlign: 'center',
     border: '1px solid',
     width: '100%',
-  },
-  userBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '10px 16px',
-    marginBottom: '20px',
-    background: 'rgba(10, 112, 186, 0.06)',
-    borderRadius: '12px',
-    border: '1px solid rgba(10, 112, 186, 0.12)',
-    width: '100%',
-    flexWrap: 'wrap',
-  },
-  userBadgeIcon: {
-    fontSize: '1.1rem',
-    flexShrink: 0,
-  },
-  userBadgeText: {
-    fontSize: '0.9rem',
-    color: '#4a5568',
-    fontWeight: 500,
-    wordBreak: 'break-word',
   },
   formGroup: {
     marginBottom: '22px',
@@ -773,24 +785,6 @@ const styles = {
     alignItems: 'center',
     gap: '6px',
   },
-  changeCategoryContainer: {
-    marginTop: '16px',
-    width: '100%',
-  },
-  changeCategoryBtn: {
-    width: '100%',
-    padding: '14px',
-    background: 'rgba(255, 245, 245, 0.9)',
-    border: '2px solid #fc8181',
-    borderRadius: '30px',
-    color: '#c53030',
-    fontWeight: 600,
-    fontSize: '0.9rem',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    textAlign: 'center',
-    boxSizing: 'border-box',
-  },
   footer: {
     marginTop: '24px',
     paddingTop: '16px',
@@ -813,359 +807,87 @@ const styles = {
   },
 };
 
-// ============================================================
-// CSS KEYFRAMES & HOVER EFFECTS (injected)
-// ============================================================
-
+// CSS Keyframes
 if (!document.getElementById('registration-form-styles')) {
   const styleSheet = document.createElement('style');
   styleSheet.id = 'registration-form-styles';
   styleSheet.textContent = `
     @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-
     @keyframes bounce {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.2); }
     }
-
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.5; transform: scale(0.8); }
     }
-
     @keyframes successPulse {
       0% { transform: scale(0.8); opacity: 0; }
       50% { transform: scale(1.02); }
       100% { transform: scale(1); opacity: 1; }
     }
-
-    /* Hover Effects */
     .form-wrapper:hover {
       transform: perspective(1200px) rotateX(0deg) rotateY(0deg) translateY(-6px) !important;
       box-shadow: 0 30px 80px rgba(42, 73, 155, 0.35), 0 0 0 2px rgba(237, 219, 11, 0.15), 0 0 0 4px rgba(104, 180, 45, 0.08) !important;
     }
-
     .name-input:focus {
       outline: none;
       border-color: #0A70BA !important;
       box-shadow: 0 0 0 4px rgba(10, 112, 186, 0.12), inset 0 2px 6px rgba(0,0,0,0.04) !important;
       background: white !important;
     }
-
     .gender-btn:hover {
       border-color: #0A70BA !important;
       transform: translateY(-2px) !important;
       box-shadow: 0 4px 16px rgba(10, 112, 186, 0.15) !important;
     }
-
     .back-btn-sm:hover {
       background: #e2e8f0 !important;
       transform: scale(1.05) !important;
     }
-
     .edit-btn:hover {
       background: linear-gradient(135deg, #2A499B, #0A70BA) !important;
       color: white !important;
       transform: scale(1.05) !important;
       box-shadow: 0 6px 20px rgba(10, 112, 186, 0.30) !important;
     }
-
-    .change-category-btn:hover {
-      background: #fed7d7 !important;
-      transform: scale(1.02) !important;
-    }
-
-    .selected-event:hover {
-      border-color: #0A70BA !important;
-      box-shadow: 0 4px 16px rgba(10, 112, 186, 0.08) !important;
-    }
-
-    .selected-category:hover {
-      border-color: #0A70BA !important;
-      box-shadow: 0 4px 16px rgba(10, 112, 186, 0.08) !important;
-    }
-
     button:disabled {
       opacity: 0.6 !important;
       cursor: not-allowed !important;
       transform: none !important;
     }
-
-    /* Mobile Responsive - Phone */
     @media (max-width: 640px) {
-      .container {
-        padding: 4px !important;
-      }
-
-      .form-wrapper {
-        padding: 20px 16px !important;
-        border-radius: 20px !important;
-      }
-
-      .header {
-        gap: 10px !important;
-        justify-content: center !important;
-        text-align: center !important;
-      }
-
-      .header-icon {
-        font-size: 1.8rem !important;
-      }
-
-      .title {
-        font-size: 1.2rem !important;
-        text-align: center !important;
-        min-width: 100% !important;
-        flex: none !important;
-      }
-
-      .header-badge {
-        width: 100% !important;
-        justify-content: center !important;
-      }
-
-      .gender-buttons {
-        flex-direction: column !important;
-      }
-
-      .gender-btn {
-        min-width: 100% !important;
-        width: 100% !important;
-        padding: 12px !important;
-      }
-
-      .success-content {
-        flex-direction: column !important;
-        text-align: center !important;
-      }
-
-      .success-emoji {
-        font-size: 1.8rem !important;
-      }
-
-      .success-text {
-        font-size: 1rem !important;
-      }
-
-      .user-badge {
-        flex-direction: column !important;
-        text-align: center !important;
-        padding: 12px !important;
-      }
-
-      .selected-event {
-        flex-direction: column !important;
-        align-items: stretch !important;
-      }
-
-      .selected-event-details {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 6px !important;
-      }
-
-      .event-actions {
-        width: 100% !important;
-      }
-
-      .edit-btn {
-        width: 100% !important;
-        justify-content: center !important;
-        padding: 10px !important;
-      }
-
-      .selected-category {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        text-align: center !important;
-      }
-
-      .selected-category-content {
-        justify-content: center !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        gap: 4px !important;
-      }
-
-      .back-btn-sm {
-        width: 100% !important;
-        text-align: center !important;
-        justify-content: center !important;
-        padding: 8px !important;
-      }
-
-      .category-buttons {
-        flex-direction: column !important;
-      }
-
-      .category-btn {
-        min-width: 100% !important;
-        width: 100% !important;
-        text-align: center !important;
-        padding: 12px !important;
-      }
-
-      .payment-methods {
-        flex-direction: column !important;
-      }
-
-      .payment-btn {
-        min-width: 100% !important;
-        width: 100% !important;
-        text-align: center !important;
-        padding: 14px !important;
-      }
-
-      .fee-card {
-        flex-direction: column !important;
-        gap: 8px !important;
-        text-align: center !important;
-      }
-
-      .fee-card .fee-info {
-        flex-direction: column !important;
-        gap: 4px !important;
-      }
-
-      .footer {
-        flex-direction: column !important;
-        gap: 4px !important;
-        text-align: center !important;
-      }
-
-      .input {
-        padding: 12px 44px 12px 14px !important;
-        font-size: 0.9rem !important;
-      }
-
-      .change-category-btn {
-        padding: 12px !important;
-        font-size: 0.85rem !important;
-      }
-
-      .modal-content {
-        padding: 24px 16px !important;
-        margin: 10px !important;
-        border-radius: 20px !important;
-      }
-
-      .event-select-btn {
-        padding: 12px 16px !important;
-      }
-
-      .event-select-btn .event-details {
-        flex-direction: column !important;
-        gap: 4px !important;
-      }
-
-      .qr-code {
-        width: 120px !important;
-        height: 120px !important;
-      }
-
-      .upload-container {
-        padding: 16px !important;
-      }
-
-      .file-input-label {
-        flex-wrap: wrap !important;
-        gap: 8px !important;
-        padding: 10px !important;
-      }
-
-      .file-text {
-        width: 100% !important;
-        text-align: center !important;
-        font-size: 0.85rem !important;
-      }
-
-      .file-browse-btn {
-        width: 100% !important;
-        text-align: center !important;
-        padding: 6px !important;
-      }
-
-      .submit-btn {
-        font-size: 0.9rem !important;
-        padding: 14px !important;
-      }
-
-      .selected-gender-display {
-        flex-direction: column !important;
-        text-align: center !important;
-        gap: 4px !important;
-      }
+      .container { padding: 4px !important; }
+      .form-wrapper { padding: 20px 16px !important; border-radius: 20px !important; }
+      .header { gap: 10px !important; justify-content: center !important; text-align: center !important; }
+      .header-icon { font-size: 1.8rem !important; }
+      .title { font-size: 1.2rem !important; text-align: center !important; min-width: 100% !important; flex: none !important; }
+      .header-badge { width: 100% !important; justify-content: center !important; }
+      .gender-buttons { flex-direction: column !important; }
+      .gender-btn { min-width: 100% !important; width: 100% !important; padding: 12px !important; }
+      .success-content { flex-direction: column !important; text-align: center !important; }
+      .success-emoji { font-size: 1.8rem !important; }
+      .success-text { font-size: 1rem !important; }
+      .selected-event { flex-direction: column !important; align-items: stretch !important; }
+      .selected-event-details { flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; }
+      .event-actions { width: 100% !important; }
+      .edit-btn { width: 100% !important; justify-content: center !important; padding: 10px !important; }
+      .selected-category { flex-direction: column !important; align-items: stretch !important; text-align: center !important; }
+      .selected-category-content { justify-content: center !important; flex-direction: column !important; align-items: center !important; gap: 4px !important; }
+      .back-btn-sm { width: 100% !important; text-align: center !important; justify-content: center !important; padding: 8px !important; }
+      .input { padding: 12px 44px 12px 14px !important; font-size: 0.9rem !important; }
+      .footer { flex-direction: column !important; gap: 4px !important; text-align: center !important; }
     }
-
-    /* Very Small Phones */
     @media (max-width: 380px) {
-      .form-wrapper {
-        padding: 16px 12px !important;
-        border-radius: 16px !important;
-      }
-
-      .title {
-        font-size: 1rem !important;
-      }
-
-      .header-icon {
-        font-size: 1.5rem !important;
-      }
-
-      .input {
-        padding: 10px 40px 10px 12px !important;
-        font-size: 0.8rem !important;
-      }
-
-      .selected-event-name {
-        font-size: 0.9rem !important;
-      }
-
-      .selected-event-distance {
-        font-size: 0.75rem !important;
-        padding: 2px 10px !important;
-      }
-
-      .category-btn {
-        font-size: 0.8rem !important;
-        padding: 10px !important;
-      }
-
-      .payment-btn {
-        font-size: 0.8rem !important;
-        padding: 10px !important;
-      }
-
-      .gender-btn {
-        font-size: 0.85rem !important;
-        padding: 10px !important;
-        min-height: 44px !important;
-      }
-
-      .fee-card .fee-amount {
-        font-size: 1.1rem !important;
-      }
-
-      .success-text {
-        font-size: 0.9rem !important;
-      }
-
-      .success-subtext {
-        font-size: 0.75rem !important;
-      }
-
-      .user-badge-text {
-        font-size: 0.8rem !important;
-      }
+      .form-wrapper { padding: 16px 12px !important; border-radius: 16px !important; }
+      .title { font-size: 1rem !important; }
+      .header-icon { font-size: 1.5rem !important; }
+      .input { padding: 10px 40px 10px 12px !important; font-size: 0.8rem !important; }
+      .selected-event-name { font-size: 0.9rem !important; }
+      .gender-btn { font-size: 0.85rem !important; padding: 10px !important; min-height: 44px !important; }
     }
   `;
   document.head.appendChild(styleSheet);

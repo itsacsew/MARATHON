@@ -1373,7 +1373,6 @@ body {
   align-items: center;
   font-size: 1.2rem;
   color: white;
-  background: var(--primary-gradient);
   gap: 18px;
   width: 100%;
 }

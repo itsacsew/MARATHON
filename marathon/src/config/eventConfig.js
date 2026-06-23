@@ -33,3 +33,8 @@ export const PAYMENT_METHODS = [
   { id: 'maya', name: 'MAYA', icon: '💳' },
   { id: 'gcash', name: 'GCASH', icon: '📱' }
 ];
+
+export const GENDER_OPTIONS = [
+  { id: 'men', label: '👨 Men' },
+  { id: 'women', label: '👩 Women' }
+];

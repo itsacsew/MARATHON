@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import landbankQr from '../assets/qr-codes/landbank-qr.jpg';
-import mayaQr from '../assets/qr-codes/maya-qr.jpg';
-import gcashQr from '../assets/qr-codes/gcash-qr.jpg';
+import landbankQr from '../assets/qr-codes/landbank-qr.png';
+import mayaQr from '../assets/qr-codes/maya-qr.png';
+import gcashQr from '../assets/qr-codes/gcash-qr.png';
 
 const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -26,8 +26,25 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
     gcash: 'GCASH'
   };
 
+  // Account details for each payment method
+  const accountDetails = {
+    landbank: {
+      name: 'JONIZA MANTILLA',
+      account: 'XXXXXX8180'
+    },
+    maya: {
+      name: 'JONIZA RHEA MANTILLA',
+      account: '+63******2747'
+    },
+    gcash: {
+      name: 'JO***A RH*A M.',
+      account: '0970370****'
+    }
+  };
+
   const qrImage = qrImages[paymentMethod];
   const methodName = methodNames[paymentMethod];
+  const account = accountDetails[paymentMethod];
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -157,9 +174,12 @@ const PaymentModal = ({ isOpen, onClose, paymentMethod, onFileUpload, onSubmit }
             className="qr-code"
           />
           <p className="qr-instruction">Scan this QR code to pay</p>
-          <p className="payment-instruction">
-            Please send your payment receipt to our official email or contact number.
-          </p>
+          
+          {/* Account Details */}
+          <div className="account-details">
+            <p className="account-name">{account.name}</p>
+            <p className="account-number">{account.account}</p>
+          </div>
         </div>
 
         {/* File Upload Section */}

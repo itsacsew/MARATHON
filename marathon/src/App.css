@@ -205,3 +205,21 @@ button:disabled {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   z-index: 100;
 }
+/* Gender Badge */
+.gender-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.gender-badge.men {
+  background: #bee3f8;
+  color: #2b6cb0;
+}
+
+.gender-badge.women {
+  background: #fbb6ce;
+  color: #9b2c2c;
+}

@@ -3,12 +3,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
-  const { userData, logout, getAllUsers, getAllRegistrations } = useAuth(); // Removed unused 'currentUser'
+  const { userData, logout, getAllUsers, getAllRegistrations } = useAuth();
   const [registrations, setRegistrations] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterGender, setFilterGender] = useState('all'); // NEW: Gender filter
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState('registrations');
@@ -54,7 +55,7 @@ const AdminDashboard = () => {
     setSelectedRegistration(null);
   };
 
-  // Filter registrations
+  // Filter registrations - ADDED GENDER FILTER
   const filteredRegistrations = registrations.filter(reg => {
     const matchesSearch = 
       reg.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -63,8 +64,9 @@ const AdminDashboard = () => {
       reg.category?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = filterCategory === 'all' || reg.categoryId === filterCategory;
+    const matchesGender = filterGender === 'all' || reg.gender === filterGender;
     
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && matchesGender;
   });
 
   // Filter users
@@ -75,6 +77,9 @@ const AdminDashboard = () => {
 
   // Get unique categories for filter
   const categories = [...new Set(registrations.map(reg => reg.categoryId))];
+  
+  // Get unique genders for filter
+  const genders = [...new Set(registrations.map(reg => reg.gender))];
 
   if (loading) {
     return (
@@ -133,27 +138,45 @@ const AdminDashboard = () => {
         </div>
 
         {activeTab === 'registrations' && (
-          <div className="filter-box">
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>
-                  {cat === 'open' ? 'OPEN CATEGORY' : 
-                   cat === 'masters' ? "40 UPPER'S/MASTER'S" : 
-                   'LILOAN ONLY'}
-                </option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="filter-box">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>
+                    {cat === 'open' ? 'OPEN CATEGORY' : 
+                     cat === 'masters' ? "40 UPPER'S/MASTER'S" : 
+                     'LILOAN ONLY'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* NEW: Gender Filter Dropdown */}
+            <div className="filter-box">
+              <select
+                value={filterGender}
+                onChange={(e) => setFilterGender(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Genders</option>
+                {genders.map(gender => (
+                  <option key={gender} value={gender}>
+                    {gender === 'men' ? '👨 Men' : gender === 'women' ? '👩 Women' : gender}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
       </div>
 
       {/* Rest of the component remains the same... */}
-      {/* Registrations Table */}
+      {/* Registrations Table - ADDED GENDER COLUMN */}
       {activeTab === 'registrations' && (
         <div className="admin-table-container">
           <table className="admin-table">
@@ -162,6 +185,7 @@ const AdminDashboard = () => {
                 <th>#</th>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Gender</th>
                 <th>Category</th>
                 <th>Event</th>
                 <th>Distance</th>
@@ -175,7 +199,7 @@ const AdminDashboard = () => {
             <tbody>
               {filteredRegistrations.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="no-data">
+                  <td colSpan="12" className="no-data">
                     No registrations found
                   </td>
                 </tr>
@@ -185,6 +209,11 @@ const AdminDashboard = () => {
                     <td>{index + 1}</td>
                     <td className="name-cell">{reg.userName || 'N/A'}</td>
                     <td className="email-cell">{reg.userEmail || 'N/A'}</td>
+                    <td>
+                      <span className={`gender-badge ${reg.gender}`}>
+                        {reg.gender === 'men' ? '👨 Men' : reg.gender === 'women' ? '👩 Women' : 'N/A'}
+                      </span>
+                    </td>
                     <td>
                       <span className={`category-badge ${reg.categoryId}`}>
                         {reg.category || 'N/A'}
@@ -266,7 +295,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Detail Modal */}
+      {/* Detail Modal - ADDED Gender field */}
       {showModal && selectedRegistration && (
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -281,6 +310,14 @@ const AdminDashboard = () => {
               <div className="detail-item">
                 <label>Email</label>
                 <span>{selectedRegistration.userEmail || 'N/A'}</span>
+              </div>
+              <div className="detail-item">
+                <label>Gender</label>
+                <span>
+                  {selectedRegistration.gender === 'men' ? '👨 Men' : 
+                   selectedRegistration.gender === 'women' ? '👩 Women' : 
+                   'N/A'}
+                </span>
               </div>
               <div className="detail-item">
                 <label>User ID</label>

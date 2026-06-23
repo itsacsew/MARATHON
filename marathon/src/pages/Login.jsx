@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Import your images (adjust paths as needed)
 import logoImg from '../assets/logo_resized_200x200.png'; // or logo_resized_200x200.png
-import sealImg from '../assets/9520a761-89a7-44cc-a36f-d9adcc6aa175.jpg'; // or the jpg
+import sealImg from '../assets/9520a761-89a7-44cc-a36f-d9adcc6aa175.jpg';
+import sealImg1 from '../assets/206thFA Theme copy.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -40,6 +41,7 @@ const Login = () => {
         <div style={styles.imageRow}>
           <img src={logoImg} alt="Logo" style={styles.img} />
           <img src={sealImg} alt="Seal" style={styles.img} />
+          <img src={sealImg1} alt="Seal" style={styles.img} />
         </div>
 
         <h2 style={styles.heading}>Login</h2>

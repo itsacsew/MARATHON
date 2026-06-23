@@ -568,7 +568,6 @@ const styles = {
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    background: `linear-gradient(160deg, ${colors.darkBlue} 0%, ${colors.blue} 30%, ${colors.teal} 60%, ${colors.green} 85%, ${colors.yellow} 100%)`,
     gap: '20px',
   },
   spinner: {

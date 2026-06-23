@@ -5,7 +5,7 @@ import EventModal from './EventModal';
 import FeeDisplay from './FeeDisplay';
 import PaymentButtons from './PaymentButtons';
 import PaymentModal from './PaymentModal';
-import { EVENT_CONFIG } from '../config/eventConfig';
+import { EVENT_CONFIG, GENDER_OPTIONS } from '../config/eventConfig';
 import { useAuth } from '../contexts/AuthContext';
 
 // Color theme
@@ -21,10 +21,12 @@ const RegistrationForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
-    event: ''
+    event: '',
+    gender: ''  // Add gender to form data
   });
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedGender, setSelectedGender] = useState(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
@@ -63,6 +65,14 @@ const RegistrationForm = () => {
     setIsEditing(false);
   };
 
+  const handleGenderSelect = (genderId) => {
+    setSelectedGender(genderId);
+    setFormData({
+      ...formData,
+      gender: genderId
+    });
+  };
+
   const handleNameChange = (e) => {
     setFormData({
       ...formData,
@@ -81,7 +91,7 @@ const RegistrationForm = () => {
   };
 
   const handleFinalSubmit = async (paymentData) => {
-    if (!currentUser || !selectedCategoryData || !selectedEvent) {
+    if (!currentUser || !selectedCategoryData || !selectedEvent || !selectedGender) {
       return;
     }
 
@@ -95,6 +105,7 @@ const RegistrationForm = () => {
 
       const registrationData = {
         userName: formData.name || userData?.displayName || 'Anonymous',
+        gender: selectedGender,
         category: selectedCategoryData.name,
         categoryId: selectedCategory,
         eventName: eventDetails.name,
@@ -118,10 +129,12 @@ const RegistrationForm = () => {
         setFormData({
           name: '',
           category: '',
-          event: ''
+          event: '',
+          gender: ''
         });
         setSelectedCategory(null);
         setSelectedEvent(null);
+        setSelectedGender(null);
         setSelectedPayment(null);
         setUploadedFile(null);
         setShowSuccess(false);
@@ -220,16 +233,6 @@ const RegistrationForm = () => {
               </div>
             )}
 
-            {/* User Info Badge */}
-            {currentUser && (
-              <div style={styles.userBadge}>
-                <span style={styles.userBadgeIcon}>👤</span>
-                <span style={styles.userBadgeText}>
-                  Logged in as: {userData?.displayName || currentUser.email}
-                </span>
-              </div>
-            )}
-
             {/* Name Input */}
             <div style={styles.formGroup}>
               <label style={styles.label}>
@@ -249,6 +252,48 @@ const RegistrationForm = () => {
                 {formData.name && <span style={styles.inputCheck}>✓</span>}
               </div>
             </div>
+
+            {/* Gender Selection - Below Name, Above Category */}
+            {!selectedCategory && !showSuccess && (
+              <div style={styles.genderSection}>
+                <div style={styles.sectionHeader}>
+                  <span style={styles.sectionIcon}>⚧️</span>
+                  <span style={styles.sectionTitle}>Select Gender</span>
+                  <span style={styles.required}>*</span>
+                </div>
+                <div style={styles.genderButtons}>
+                  {GENDER_OPTIONS.map((gender) => (
+                    <button
+                      key={gender.id}
+                      style={{
+                        ...styles.genderBtn,
+                        borderColor: selectedGender === gender.id ? colors.blue : 'rgba(0, 168, 171, 0.20)',
+                        background: selectedGender === gender.id 
+                          ? `linear-gradient(135deg, ${colors.blue}, ${colors.darkBlue})`
+                          : 'rgba(255, 255, 255, 0.7)',
+                        color: selectedGender === gender.id ? 'white' : '#4a5568',
+                        transform: selectedGender === gender.id ? 'scale(1.05)' : 'scale(1)',
+                      }}
+                      onClick={() => handleGenderSelect(gender.id)}
+                      disabled={isSubmitting || showSuccess}
+                    >
+                      <span style={styles.genderIcon}>{gender.label.split(' ')[0]}</span>
+                      <span>{gender.label.split(' ')[1]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Show selected gender when category is selected */}
+            {selectedGender && !showSuccess && (
+              <div style={styles.selectedGenderDisplay}>
+                <span style={styles.selectedGenderLabel}>Gender:</span>
+                <span style={styles.selectedGenderValue}>
+                  {selectedGender === 'men' ? '👨 Men' : '👩 Women'}
+                </span>
+              </div>
+            )}
 
             {/* Category Selection */}
             {!selectedCategory && !showSuccess && (
@@ -554,6 +599,54 @@ const styles = {
     fontWeight: 700,
     fontSize: '1.1rem',
   },
+  genderSection: {
+    marginBottom: '20px',
+    width: '100%',
+  },
+  genderButtons: {
+    display: 'flex',
+    gap: '12px',
+    width: '100%',
+  },
+  genderBtn: {
+    flex: 1,
+    padding: '14px 20px',
+    border: '2px solid',
+    borderRadius: '16px',
+    fontSize: '1rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    minHeight: '56px',
+  },
+  genderIcon: {
+    fontSize: '1.4rem',
+  },
+  selectedGenderDisplay: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '10px 16px',
+    marginBottom: '16px',
+    background: 'rgba(10, 112, 186, 0.06)',
+    borderRadius: '12px',
+    border: '1px solid rgba(10, 112, 186, 0.15)',
+    width: '100%',
+  },
+  selectedGenderLabel: {
+    fontWeight: 600,
+    color: '#4a5568',
+    fontSize: '0.85rem',
+  },
+  selectedGenderValue: {
+    fontWeight: 700,
+    color: colors.blue,
+    fontSize: '0.95rem',
+  },
   categorySection: {
     marginBottom: '20px',
     width: '100%',
@@ -724,7 +817,6 @@ const styles = {
 // CSS KEYFRAMES & HOVER EFFECTS (injected)
 // ============================================================
 
-// Check if styles already injected
 if (!document.getElementById('registration-form-styles')) {
   const styleSheet = document.createElement('style');
   styleSheet.id = 'registration-form-styles';
@@ -767,6 +859,12 @@ if (!document.getElementById('registration-form-styles')) {
       border-color: #0A70BA !important;
       box-shadow: 0 0 0 4px rgba(10, 112, 186, 0.12), inset 0 2px 6px rgba(0,0,0,0.04) !important;
       background: white !important;
+    }
+
+    .gender-btn:hover {
+      border-color: #0A70BA !important;
+      transform: translateY(-2px) !important;
+      box-shadow: 0 4px 16px rgba(10, 112, 186, 0.15) !important;
     }
 
     .back-btn-sm:hover {
@@ -833,6 +931,16 @@ if (!document.getElementById('registration-form-styles')) {
       .header-badge {
         width: 100% !important;
         justify-content: center !important;
+      }
+
+      .gender-buttons {
+        flex-direction: column !important;
+      }
+
+      .gender-btn {
+        min-width: 100% !important;
+        width: 100% !important;
+        padding: 12px !important;
       }
 
       .success-content {
@@ -991,138 +1099,10 @@ if (!document.getElementById('registration-form-styles')) {
         padding: 14px !important;
       }
 
-      .registrations-history {
-        padding: 16px !important;
-      }
-
-      .registration-item {
-        grid-template-columns: 1fr !important;
-        padding: 12px !important;
-      }
-
-      .admin-header {
+      .selected-gender-display {
         flex-direction: column !important;
-        padding: 16px !important;
         text-align: center !important;
-      }
-
-      .admin-header-left {
-        flex-direction: column !important;
-        gap: 8px !important;
-      }
-
-      .admin-header-left h1 {
-        font-size: 1.3rem !important;
-      }
-
-      .admin-header-right {
-        width: 100% !important;
-        justify-content: center !important;
-        flex-wrap: wrap !important;
-      }
-
-      .admin-tabs {
-        flex-direction: column !important;
-      }
-
-      .tab-btn {
-        width: 100% !important;
-        text-align: center !important;
-        padding: 12px !important;
-      }
-
-      .admin-controls {
-        flex-direction: column !important;
-        padding: 16px !important;
-      }
-
-      .search-box {
-        min-width: 100% !important;
-      }
-
-      .filter-box {
-        min-width: 100% !important;
-      }
-
-      .admin-table-container {
-        padding: 8px !important;
-        overflow-x: auto !important;
-      }
-
-      .admin-table {
-        font-size: 0.7rem !important;
-        min-width: 600px !important;
-      }
-
-      .admin-table th,
-      .admin-table td {
-        padding: 6px 8px !important;
-        font-size: 0.7rem !important;
-      }
-
-      .detail-grid {
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
-      }
-
-      .detail-modal {
-        padding: 16px !important;
-      }
-
-      .view-btn {
-        padding: 4px 10px !important;
-        font-size: 0.7rem !important;
-      }
-
-      .name-cell,
-      .email-cell {
-        max-width: 60px !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-      }
-
-      .fee-cell {
-        font-size: 0.7rem !important;
-      }
-
-      .date-cell {
-        font-size: 0.6rem !important;
-      }
-
-      .registration-count,
-      .user-count {
-        font-size: 0.7rem !important;
-        padding: 4px 12px !important;
-      }
-
-      .refresh-btn {
-        padding: 8px 16px !important;
-        font-size: 0.8rem !important;
-      }
-
-      .logout-btn {
-        padding: 8px 16px !important;
-        font-size: 0.8rem !important;
-      }
-
-      .payment-modal {
-        padding: 16px !important;
-      }
-
-      .modal-close-btn {
-        padding: 12px !important;
-        font-size: 0.85rem !important;
-      }
-
-      .edit-btn,
-      .back-btn-sm {
-        font-size: 0.8rem !important;
-      }
-
-      .back-btn-full {
-        padding: 12px !important;
-        font-size: 0.85rem !important;
+        gap: 4px !important;
       }
     }
 
@@ -1163,6 +1143,12 @@ if (!document.getElementById('registration-form-styles')) {
       .payment-btn {
         font-size: 0.8rem !important;
         padding: 10px !important;
+      }
+
+      .gender-btn {
+        font-size: 0.85rem !important;
+        padding: 10px !important;
+        min-height: 44px !important;
       }
 
       .fee-card .fee-amount {

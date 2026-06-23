@@ -8,7 +8,7 @@ const FeeDisplay = ({ selectedEvent, events }) => {
 
   return (
     <div className="fee-display">
-      <h3>REGISTRATION FEES</h3>
+      <h3>REGISTRATION FEES (EARLY REGISTRATION)</h3>
       <div className="fee-card">
         <div className="fee-info">
           <span className="event-name">{event.name}</span>

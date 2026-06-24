@@ -36,21 +36,21 @@ const Dashboard = () => {
     }
   };
 
-  // Generate Image (PNG) for view modal with iPhone compatibility
+  // Generate Image (PNG) for view modal with centered content
   const generateImage = async () => {
     const element = captureRef.current;
     if (!element) return;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Get the actual dimensions
       const rect = element.getBoundingClientRect();
-      const width = rect.width || 550;
-      const height = rect.height || 800;
+      const width = rect.width || 500;
+      const height = rect.height || 700;
 
       const canvas = await html2canvas(element, {
-        scale: 3, // Higher scale for better quality on iPhone
+        scale: 3,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
@@ -64,24 +64,28 @@ const Dashboard = () => {
           if (clonedElement) {
             clonedElement.style.width = width + 'px';
             clonedElement.style.height = 'auto';
-            clonedElement.style.display = 'block';
+            clonedElement.style.display = 'flex';
+            clonedElement.style.justifyContent = 'center';
+            clonedElement.style.alignItems = 'center';
           }
         }
       });
 
-      // For iPhone compatibility
+      // For iPhone compatibility - download via blob
       const link = document.createElement('a');
       link.download = `registration-${selectedRegistration?.referenceNumber || 'confirmation'}.png`;
-      link.href = canvas.toDataURL('image/png');
       
-      // Trigger download
+      // Convert to blob for better iPhone compatibility
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      // Clean up
       setTimeout(() => {
-        URL.revokeObjectURL(link.href);
+        URL.revokeObjectURL(url);
       }, 100);
     } catch (error) {
       console.error('Error generating image:', error);
@@ -89,17 +93,17 @@ const Dashboard = () => {
     }
   };
 
-  // Generate Waiver Image (PNG) with iPhone compatibility
+  // Generate Waiver Image (PNG) with centered content
   const generateWaiverImage = async () => {
     const element = waiverCaptureRef.current;
     if (!element) return;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const rect = element.getBoundingClientRect();
-      const width = rect.width || 550;
-      const height = rect.height || 800;
+      const width = rect.width || 500;
+      const height = rect.height || 700;
 
       const canvas = await html2canvas(element, {
         scale: 3,
@@ -116,21 +120,26 @@ const Dashboard = () => {
           if (clonedElement) {
             clonedElement.style.width = width + 'px';
             clonedElement.style.height = 'auto';
-            clonedElement.style.display = 'block';
+            clonedElement.style.display = 'flex';
+            clonedElement.style.justifyContent = 'center';
+            clonedElement.style.alignItems = 'center';
           }
         }
       });
 
       const link = document.createElement('a');
       link.download = `waiver-${selectedRegistration?.userName || 'participant'}.png`;
-      link.href = canvas.toDataURL('image/png');
+      
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const url = URL.createObjectURL(blob);
+      link.href = url;
       
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
       setTimeout(() => {
-        URL.revokeObjectURL(link.href);
+        URL.revokeObjectURL(url);
       }, 100);
     } catch (error) {
       console.error('Error generating waiver image:', error);
@@ -364,18 +373,18 @@ const Dashboard = () => {
             </div>
 
             {/* ============================================================ */}
-            {/* CAPTURE CONTENT - For image download with iPhone compatibility */}
+            {/* CAPTURE CONTENT - CENTERED FOR IPHONE */}
             {/* ============================================================ */}
             <div id="capture-content-dashboard" ref={captureRef} style={styles.captureContent}>
               <div style={styles.captureInner}>
-                {/* Header */}
+                {/* Header - CENTERED */}
                 <div style={styles.captureHeader}>
                   <h1 style={styles.captureHeaderH1}>🏃 Liloan Love the Life</h1>
                   <h2 style={styles.captureHeaderH2}>Registration Confirmation</h2>
                   <div style={styles.captureDivider}></div>
                 </div>
 
-                {/* Personal Information */}
+                {/* Personal Information - CENTERED */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Personal Information</h3>
                   <div style={styles.captureRow}>
@@ -414,7 +423,7 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Emergency Contact */}
+                {/* Emergency Contact - CENTERED */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Emergency Contact</h3>
                   <div style={styles.captureRow}>
@@ -429,7 +438,7 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Event Details */}
+                {/* Event Details - CENTERED */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Event Details</h3>
                   <div style={styles.captureRow}>
@@ -456,7 +465,7 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Payment Details */}
+                {/* Payment Details - CENTERED */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Payment Details</h3>
                   <div style={styles.captureRow}>
@@ -481,7 +490,7 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Footer */}
+                {/* Footer - CENTERED */}
                 <div style={styles.captureFooter}>
                   <p>Thank you for registering</p>
                   <p style={styles.captureFooterSmall}>Liloan Love the Life • 2026</p>
@@ -490,7 +499,7 @@ const Dashboard = () => {
             </div>
 
             {/* ============================================================ */}
-            {/* WAIVER CAPTURE CONTENT - For image download with iPhone compatibility */}
+            {/* WAIVER CAPTURE CONTENT - CENTERED FOR IPHONE */}
             {/* ============================================================ */}
             <div id="waiver-capture-content" ref={waiverCaptureRef} style={styles.waiverCaptureContent}>
               <div style={styles.waiverCaptureInner}>
@@ -736,7 +745,7 @@ const Dashboard = () => {
 };
 
 // ============================================================
-// STYLES - Professional 3D Design with Liloan Love the Life Theme
+// STYLES - All content is CENTERED for iPhone compatibility
 // ============================================================
 
 const colors = {
@@ -1337,7 +1346,7 @@ const styles = {
     minWidth: '150px',
   },
   // ============================================================
-  // CAPTURE STYLES - For image generation with iPhone compatibility
+  // CAPTURE STYLES - CENTERED for iPhone
   // ============================================================
   captureContent: {
     position: 'absolute',
@@ -1351,39 +1360,46 @@ const styles = {
     boxSizing: 'border-box',
     WebkitFontSmoothing: 'antialiased',
     MozOsxFontSmoothing: 'grayscale',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   captureInner: {
-    padding: '30px 32px 25px',
+    padding: '35px 35px 30px',
     width: '100%',
+    maxWidth: '460px',
     boxSizing: 'border-box',
     background: 'white',
     display: 'flex',
     flexDirection: 'column',
     minHeight: '100%',
+    margin: '0 auto',
   },
   captureHeader: {
     textAlign: 'center',
-    marginBottom: '16px',
+    marginBottom: '18px',
   },
   captureHeaderH1: {
     fontSize: '22px',
     color: '#2A499B',
     margin: '0 0 4px 0',
     fontWeight: '700',
+    textAlign: 'center',
   },
   captureHeaderH2: {
     fontSize: '16px',
     color: '#0A70BA',
     margin: '0 0 6px 0',
     fontWeight: '500',
+    textAlign: 'center',
   },
   captureDivider: {
     borderTop: '2px solid #EDDB0B',
-    margin: '8px 0',
+    margin: '10px auto',
     width: '100%',
   },
   captureSection: {
-    marginBottom: '8px',
+    marginBottom: '10px',
   },
   captureSectionTitle: {
     fontSize: '13px',
@@ -1392,12 +1408,14 @@ const styles = {
     margin: '0 0 4px 0',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
+    textAlign: 'center',
   },
   captureRow: {
     display: 'flex',
     padding: '4px 0',
     borderBottom: '1px solid #f0f0f0',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   captureLabel: {
     flex: '0 0 130px',
@@ -1405,6 +1423,8 @@ const styles = {
     color: '#4a5568',
     fontSize: '12px',
     letterSpacing: '0.2px',
+    textAlign: 'right',
+    paddingRight: '12px',
   },
   captureValue: {
     flex: 1,
@@ -1412,10 +1432,11 @@ const styles = {
     fontSize: '12px',
     fontWeight: '500',
     wordBreak: 'break-word',
+    textAlign: 'left',
   },
   captureFooter: {
     textAlign: 'center',
-    marginTop: '16px',
+    marginTop: '18px',
     paddingTop: '12px',
     borderTop: '2px solid #EDDB0B',
   },
@@ -1423,9 +1444,10 @@ const styles = {
     fontSize: '10px',
     color: '#a0aec0',
     fontWeight: '400',
+    textAlign: 'center',
   },
   // ============================================================
-  // WAIVER CAPTURE STYLES - For image download with iPhone compatibility
+  // WAIVER CAPTURE STYLES - CENTERED for iPhone
   // ============================================================
   waiverCaptureContent: {
     position: 'absolute',
@@ -1439,31 +1461,38 @@ const styles = {
     boxSizing: 'border-box',
     WebkitFontSmoothing: 'antialiased',
     MozOsxFontSmoothing: 'grayscale',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   waiverCaptureInner: {
-    padding: '35px 32px 25px',
+    padding: '40px 35px 30px',
     width: '100%',
+    maxWidth: '460px',
     boxSizing: 'border-box',
     background: 'white',
     display: 'flex',
     flexDirection: 'column',
     minHeight: '100%',
+    margin: '0 auto',
   },
   waiverCaptureHeader: {
     textAlign: 'center',
-    marginBottom: '18px',
+    marginBottom: '20px',
   },
   waiverCaptureTitle: {
     fontSize: '22px',
     color: '#2A499B',
     margin: '0 0 4px 0',
     fontWeight: '700',
+    textAlign: 'center',
   },
   waiverCaptureSubtitle: {
     fontSize: '16px',
     color: '#0A70BA',
     margin: '0 0 6px 0',
     fontWeight: '600',
+    textAlign: 'center',
   },
   waiverCaptureBody: {
     margin: '10px 0',
@@ -1477,7 +1506,7 @@ const styles = {
     textAlign: 'justify',
   },
   waiverCaptureSignature: {
-    marginTop: '16px',
+    marginTop: '18px',
     paddingTop: '12px',
     borderTop: '2px solid #EDDB0B',
   },
@@ -1486,12 +1515,14 @@ const styles = {
     alignItems: 'center',
     gap: '12px',
     padding: '5px 0',
+    justifyContent: 'center',
   },
   waiverCaptureFieldLabel: {
     fontWeight: '600',
     color: '#4a5568',
     fontSize: '12px',
     minWidth: '140px',
+    textAlign: 'right',
   },
   waiverCaptureFieldValue: {
     color: '#2d3748',
@@ -1499,16 +1530,18 @@ const styles = {
     borderBottom: '1px solid #cbd5e0',
     padding: '2px 8px',
     flex: 1,
+    textAlign: 'left',
   },
   waiverCaptureFooter: {
     textAlign: 'center',
-    marginTop: '16px',
+    marginTop: '18px',
     paddingTop: '12px',
     borderTop: '2px solid #EDDB0B',
   },
   waiverCaptureFooterText: {
     fontSize: '11px',
     color: '#a0aec0',
+    textAlign: 'center',
   },
 };
 
@@ -1594,15 +1627,20 @@ styleSheet.textContent = `
     margin: -4px -8px !important;
   }
 
-  /* iPhone/iOS specific fixes */
+  /* iPhone/iOS specific fixes for CENTERED content */
   @supports (-webkit-touch-callout: none) {
     .capture-content, .waiver-capture-content {
       width: 500px !important;
       max-width: 500px !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
     }
     
     .capture-inner, .waiver-capture-inner {
-      padding: 30px 32px 25px !important;
+      padding: 35px 35px 30px !important;
+      max-width: 460px !important;
+      margin: 0 auto !important;
     }
   }
 

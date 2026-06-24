@@ -1,8 +1,8 @@
 import React, { useRef } from 'react';
-import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
 
 const SuccessModal = ({ isOpen, onClose, registrationData }) => {
-  const pdfContentRef = useRef(null);
+  const captureRef = useRef(null);
 
   if (!isOpen || !registrationData) return null;
 
@@ -20,23 +20,40 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
     });
   };
 
-  // Generate PDF
-  const generatePDF = () => {
-    const element = pdfContentRef.current;
-    const opt = {
-      margin:        [15, 15, 15, 15],
-      filename:     `registration-${registrationData.referenceNumber || 'confirmation'}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
+  // Generate Image (PNG) - Captures the success details card
+  const generateImage = async () => {
+    const element = captureRef.current;
+    if (!element) return;
+
+    try {
+      // Add a small delay to ensure everything is rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        allowTaint: true,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+      });
+
+      // Create download link
+      const link = document.createElement('a');
+      link.download = `registration-${registrationData.referenceNumber || 'confirmation'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Error generating image:', error);
+      alert('Failed to generate image. Please try again.');
+    }
   };
 
   // Get gender label
   const getGenderLabel = (gender) => {
-    if (gender === 'men') return '👨 Male';
-    if (gender === 'women') return '👩 Female';
+    if (gender === 'male' || gender === 'Male') return '👨 Male';
+    if (gender === 'female' || gender === 'Female') return '👩 Female';
     return gender || 'N/A';
   };
 
@@ -48,77 +65,69 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           
           {/* Success Header */}
           <div className="success-header">
-            <div className="success-icon-big">🎉</div>
             <h2 className="success-title">Registration Successful!</h2>
             <p className="success-subtitle">Your registration has been confirmed</p>
           </div>
 
-          {/* Registration Details - Hidden but used for PDF */}
-          <div ref={pdfContentRef} className="pdf-content" style={{ display: 'none' }}>
-            <div className="pdf-inner">
-              <div className="pdf-header">
+          {/* ============================================================ */}
+          {/* CAPTURE CONTENT - This will be captured as an image */}
+          {/* ============================================================ */}
+          <div ref={captureRef} className="capture-content">
+            <div className="capture-inner">
+              {/* Header */}
+              <div className="capture-header">
                 <h1>🏃 Liloan Love the Life</h1>
                 <h2>Registration Confirmation</h2>
-                <div className="pdf-divider"></div>
+                <div className="capture-divider"></div>
               </div>
               
-              <div className="pdf-body">
-                <div className="pdf-row">
-                  <span className="pdf-label">Name:</span>
-                  <span className="pdf-value">{registrationData.userName || 'N/A'}</span>
+              {/* Details Grid */}
+              <div className="capture-details">
+                <div className="capture-row">
+                  <span className="capture-label">👤 Name</span>
+                  <span className="capture-value">{registrationData.userName || 'N/A'}</span>
                 </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Gender:</span>
-                  <span className="pdf-value">{getGenderLabel(registrationData.gender)}</span>
+                <div className="capture-row">
+                  <span className="capture-label">🔢 Reference Number</span>
+                  <span className="capture-value reference-number">{registrationData.referenceNumber || 'N/A'}</span>
                 </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Reference Number:</span>
-                  <span className="pdf-value reference-number-pdf">{registrationData.referenceNumber || 'N/A'}</span>
+                <div className="capture-row">
+                  <span className="capture-label">📅 Date of Payment</span>
+                  <span className="capture-value">{formatDate(registrationData.paymentDate || registrationData.registeredAt)}</span>
                 </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Date of Payment:</span>
-                  <span className="pdf-value">{formatDate(registrationData.paymentDate || registrationData.registeredAt)}</span>
+                <div className="capture-row">
+                  <span className="capture-label">⚧️ Gender</span>
+                  <span className="capture-value">{getGenderLabel(registrationData.gender)}</span>
                 </div>
-                <div className="pdf-divider"></div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Event:</span>
-                  <span className="pdf-value">{registrationData.eventName || 'N/A'}</span>
+                <div className="capture-row">
+                  <span className="capture-label">🏁 Event</span>
+                  <span className="capture-value">{registrationData.eventName || 'N/A'}</span>
                 </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Category:</span>
-                  <span className="pdf-value">{registrationData.category || 'N/A'}</span>
+                <div className="capture-row">
+                  <span className="capture-label">👕 Shirt Size</span>
+                  <span className="capture-value shirt-size">{registrationData.shirtSize || 'N/A'}</span>
                 </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Distance:</span>
-                  <span className="pdf-value">{registrationData.distance || 'N/A'}</span>
+                <div className="capture-row">
+                  <span className="capture-label">💰 Fee</span>
+                  <span className="capture-value fee-amount">₱{registrationData.fee?.toLocaleString() || '0'}.00</span>
                 </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Fee:</span>
-                  <span className="pdf-value fee-amount">₱{registrationData.fee?.toLocaleString() || '0'}.00</span>
-                </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Payment Method:</span>
-                  <span className="pdf-value">{registrationData.paymentMethod?.toUpperCase() || 'N/A'}</span>
-                </div>
-                <div className="pdf-divider"></div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Status:</span>
-                  <span className="pdf-value status-completed">✅ COMPLETED</span>
-                </div>
-                <div className="pdf-row">
-                  <span className="pdf-label">Registration ID:</span>
-                  <span className="pdf-value">{registrationData.id || 'N/A'}</span>
+                <div className="capture-row">
+                  <span className="capture-label">📊 Status</span>
+                  <span className="capture-value status-completed">✅ Completed</span>
                 </div>
               </div>
               
-              <div className="pdf-footer">
+              {/* Footer */}
+              <div className="capture-footer">
                 <p>Thank you for registering! 🏃</p>
-                <p className="pdf-footer-small">Liloan Love the Life • 2026</p>
+                <p className="capture-footer-small">Liloan Love the Life • 2026</p>
               </div>
             </div>
           </div>
 
-          {/* Display Details */}
+          {/* ============================================================ */}
+          {/* SUCCESS MODAL UI - Display Details (KEEP EXISTING) */}
+          {/* ============================================================ */}
           <div className="success-details">
             <div className="detail-card">
               <div className="detail-label">👤 Name</div>
@@ -141,16 +150,24 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
               <div className="detail-value">{registrationData.eventName || 'N/A'}</div>
             </div>
             <div className="detail-card">
+              <div className="detail-label">👕 Shirt Size</div>
+              <div className="detail-value" style={{ color: '#0A70BA', fontWeight: 'bold' }}>{registrationData.shirtSize || 'N/A'}</div>
+            </div>
+            <div className="detail-card">
               <div className="detail-label">💰 Fee</div>
               <div className="detail-value fee-amount">₱{registrationData.fee?.toLocaleString() || '0'}.00</div>
+            </div>
+            <div className="detail-card">
+              <div className="detail-label">📊 Status</div>
+              <div className="detail-value" style={{ color: '#68B42D', fontWeight: 'bold' }}>✅ Completed</div>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="success-actions">
-            <button className="download-pdf-btn" onClick={generatePDF}>
-              <span className="pdf-icon">📄</span>
-              Download PDF
+            <button className="download-image-btn" onClick={generateImage}>
+              <span className="image-icon">🖼️</span>
+              Download Image
             </button>
             <button className="done-btn" onClick={onClose}>
               Done
@@ -163,7 +180,7 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
       <style>{`
         /* Success Modal Styles */
         .success-modal {
-          max-width: 500px !important;
+          max-width: 520px !important;
           width: 95% !important;
           padding: 32px 28px !important;
           border-radius: 28px !important;
@@ -186,13 +203,6 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           margin-bottom: 24px;
         }
 
-        .success-icon-big {
-          font-size: 4rem;
-          display: block;
-          animation: bounce 1s ease infinite;
-          margin-bottom: 8px;
-        }
-
         .success-title {
           font-size: 1.6rem;
           font-weight: 700;
@@ -210,14 +220,14 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
         .success-details {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin: 20px 0 24px 0;
+          gap: 10px;
+          margin: 16px 0 20px 0;
         }
 
         .detail-card {
           background: rgba(247, 250, 252, 0.8);
-          border-radius: 14px;
-          padding: 12px 16px;
+          border-radius: 12px;
+          padding: 10px 14px;
           border: 1px solid rgba(0, 168, 171, 0.10);
           transition: all 0.3s ease;
         }
@@ -230,16 +240,16 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
         }
 
         .detail-label {
-          font-size: 0.7rem;
+          font-size: 0.65rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           color: #718096;
           font-weight: 600;
-          margin-bottom: 4px;
+          margin-bottom: 3px;
         }
 
         .detail-value {
-          font-size: 0.95rem;
+          font-size: 0.9rem;
           font-weight: 600;
           color: #2d3748;
           word-break: break-word;
@@ -248,7 +258,7 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
         .reference-number-display {
           color: #0A70BA;
           font-family: 'Courier New', monospace;
-          font-size: 0.85rem;
+          font-size: 0.8rem;
           background: rgba(10, 112, 186, 0.08);
           padding: 2px 10px;
           border-radius: 6px;
@@ -266,7 +276,7 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           margin-top: 8px;
         }
 
-        .download-pdf-btn {
+        .download-image-btn {
           flex: 2;
           padding: 14px 20px;
           background: linear-gradient(135deg, #2A499B, #0A70BA);
@@ -284,16 +294,16 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           box-shadow: 0 6px 20px rgba(10, 112, 186, 0.30);
         }
 
-        .download-pdf-btn:hover {
+        .download-image-btn:hover {
           transform: translateY(-2px) scale(1.02);
           box-shadow: 0 10px 30px rgba(10, 112, 186, 0.40);
         }
 
-        .download-pdf-btn:active {
+        .download-image-btn:active {
           transform: scale(0.98);
         }
 
-        .pdf-icon {
+        .image-icon {
           font-size: 1.2rem;
         }
 
@@ -315,74 +325,88 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           transform: translateY(-2px);
         }
 
-        /* PDF Styles */
-        .pdf-content {
+        /* ============================================================ */
+        /* CAPTURE STYLES - For image generation */
+        /* ============================================================ */
+        .capture-content {
           position: absolute;
           left: -9999px;
           top: 0;
-          width: 210mm;
-          min-height: 297mm;
+          width: 500px;
           background: white;
           font-family: Arial, Helvetica, sans-serif;
+          padding: 0;
         }
 
-        .pdf-inner {
-          padding: 40px 50px;
+        .capture-inner {
+          padding: 40px 35px;
           width: 100%;
           box-sizing: border-box;
+          background: white;
         }
 
-        .pdf-header {
+        .capture-header {
           text-align: center;
-          margin-bottom: 30px;
+          margin-bottom: 25px;
         }
 
-        .pdf-header h1 {
-          font-size: 24px;
+        .capture-header h1 {
+          font-size: 22px;
           color: #2A499B;
-          margin: 0 0 8px 0;
+          margin: 0 0 6px 0;
         }
 
-        .pdf-header h2 {
-          font-size: 18px;
+        .capture-header h2 {
+          font-size: 16px;
           color: #0A70BA;
-          margin: 0 0 12px 0;
+          margin: 0 0 10px 0;
           font-weight: 500;
         }
 
-        .pdf-divider {
+        .capture-divider {
           border-top: 2px solid #EDDB0B;
-          margin: 16px 0;
+          margin: 14px 0;
           width: 100%;
         }
 
-        .pdf-body {
-          margin: 20px 0;
+        .capture-details {
+          margin: 16px 0;
         }
 
-        .pdf-row {
+        .capture-row {
           display: flex;
           padding: 8px 0;
           border-bottom: 1px solid #f0f0f0;
+          align-items: center;
         }
 
-        .pdf-label {
-          flex: 0 0 160px;
+        .capture-row:last-child {
+          border-bottom: none;
+        }
+
+        .capture-label {
+          flex: 0 0 140px;
           font-weight: 600;
           color: #4a5568;
-          font-size: 14px;
+          font-size: 13px;
         }
 
-        .pdf-value {
+        .capture-value {
           flex: 1;
           color: #2d3748;
-          font-size: 14px;
+          font-size: 13px;
+          font-weight: 500;
         }
 
-        .reference-number-pdf {
+        .reference-number {
           font-family: 'Courier New', monospace;
           font-weight: 700;
           color: #0A70BA;
+        }
+
+        .shirt-size {
+          color: #0A70BA;
+          font-weight: 700;
         }
 
         .fee-amount {
@@ -395,60 +419,68 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           font-weight: 700;
         }
 
-        .pdf-footer {
+        .capture-footer {
           text-align: center;
-          margin-top: 40px;
-          padding-top: 20px;
+          margin-top: 30px;
+          padding-top: 16px;
           border-top: 2px solid #EDDB0B;
         }
 
-        .pdf-footer p {
+        .capture-footer p {
           margin: 4px 0;
           color: #4a5568;
-          font-size: 14px;
+          font-size: 13px;
         }
 
-        .pdf-footer-small {
-          font-size: 12px !important;
+        .capture-footer-small {
+          font-size: 11px !important;
           color: #a0aec0 !important;
         }
 
         /* Mobile Responsive */
         @media (max-width: 480px) {
           .success-modal {
-            padding: 24px 16px !important;
-            margin: 10px !important;
+            padding: 20px 14px !important;
+            margin: 8px !important;
+            border-radius: 20px !important;
           }
 
           .success-details {
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 6px;
+            margin: 12px 0 16px 0;
           }
 
           .detail-card {
-            padding: 10px 12px;
+            padding: 8px 10px;
           }
 
           .detail-value {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
+          }
+
+          .detail-label {
+            font-size: 0.55rem;
           }
 
           .success-actions {
             flex-direction: column;
+            gap: 8px;
           }
 
-          .download-pdf-btn,
+          .download-image-btn,
           .done-btn {
             width: 100%;
             padding: 12px;
+            font-size: 0.9rem;
           }
 
           .success-title {
-            font-size: 1.3rem;
+            font-size: 1.2rem;
           }
 
-          .success-icon-big {
-            font-size: 3rem;
+          .success-subtitle {
+            font-size: 0.85rem;
           }
         }
 
@@ -458,11 +490,33 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           }
 
           .detail-card {
-            padding: 8px 12px;
+            padding: 6px 10px;
           }
 
           .success-modal {
-            padding: 20px 12px !important;
+            padding: 16px 10px !important;
+          }
+
+          .download-image-btn,
+          .done-btn {
+            font-size: 0.85rem;
+            padding: 10px;
+          }
+
+          .success-title {
+            font-size: 1.1rem;
+          }
+        }
+
+        /* Medium screens (481px - 768px) */
+        @media (min-width: 481px) and (max-width: 768px) {
+          .success-modal {
+            padding: 28px 22px !important;
+          }
+
+          .success-details {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
           }
         }
       `}</style>

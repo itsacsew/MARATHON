@@ -35,6 +35,6 @@ export const PAYMENT_METHODS = [
 ];
 
 export const GENDER_OPTIONS = [
-  { id: 'men', label: '👨 Men' },
-  { id: 'women', label: '👩 Women' }
+  { id: 'Male', label: '👨 Male' },
+  { id: 'Female', label: '👩 Female' }
 ];

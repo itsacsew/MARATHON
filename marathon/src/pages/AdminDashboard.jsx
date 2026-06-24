@@ -108,8 +108,8 @@ const AdminDashboard = () => {
 
   // Get gender label
   const getGenderLabel = (gender) => {
-    if (gender === 'men') return '👨 Male';
-    if (gender === 'women') return '👩 Female';
+    if (gender === 'Male') return '👨 Male';
+    if (gender === 'Female') return '👩 Female';
     return gender || 'N/A';
   };
 
@@ -197,7 +197,7 @@ const AdminDashboard = () => {
                 <option value="all">All Genders</option>
                 {genders.map(gender => (
                   <option key={gender} value={gender}>
-                    {gender === 'men' ? '👨 Men' : gender === 'women' ? '👩 Women' : gender}
+                    {gender === 'Male' ? '👨 Male' : gender === 'Female' ? '👩 Female' : gender}
                   </option>
                 ))}
               </select>
@@ -242,7 +242,7 @@ const AdminDashboard = () => {
                     <td className="email-cell">{reg.userEmail || 'N/A'}</td>
                     <td>
                       <span className={`gender-badge ${reg.gender}`}>
-                        {reg.gender === 'men' ? '👨 Men' : reg.gender === 'women' ? '👩 Women' : 'N/A'}
+                        {reg.gender === 'Male' ? '👨 Male' : reg.gender === 'Female' ? '👩 Female' : 'N/A'}
                       </span>
                     </td>
                     <td>

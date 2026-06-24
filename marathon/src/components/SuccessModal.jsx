@@ -67,8 +67,8 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
 
   // Get gender label
   const getGenderLabel = (gender) => {
-    if (gender === 'male' || gender === 'Male') return '☑ Male';
-    if (gender === 'female' || gender === 'Female') return '☑ Female';
+    if (gender === 'Male' || gender === 'Male') return '☑ Male';
+    if (gender === 'Female' || gender === 'Female') return '☑ Female';
     return gender || 'N/A';
   };
 

@@ -21,8 +21,8 @@ const colors = {
 
 // Gender options
 const GENDER_OPTIONS = [
-  { id: 'male', label: '👨 Male' },
-  { id: 'female', label: '👩 Female' }
+  { id: 'Male', label: '👨 Male' },
+  { id: 'Female', label: '👩 Female' }
 ];
 
 // Blood type options

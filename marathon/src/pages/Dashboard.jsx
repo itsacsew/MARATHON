@@ -36,56 +36,102 @@ const Dashboard = () => {
     }
   };
 
-  // Generate Image (PNG) for view modal
+  // Generate Image (PNG) for view modal with iPhone compatibility
   const generateImage = async () => {
     const element = captureRef.current;
     if (!element) return;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Get the actual dimensions
+      const rect = element.getBoundingClientRect();
+      const width = rect.width || 550;
+      const height = rect.height || 800;
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3, // Higher scale for better quality on iPhone
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
+        width: width,
+        height: height,
+        windowWidth: width,
+        windowHeight: height,
+        onclone: (document) => {
+          const clonedElement = document.getElementById('capture-content-dashboard');
+          if (clonedElement) {
+            clonedElement.style.width = width + 'px';
+            clonedElement.style.height = 'auto';
+            clonedElement.style.display = 'block';
+          }
+        }
       });
 
+      // For iPhone compatibility
       const link = document.createElement('a');
       link.download = `registration-${selectedRegistration?.referenceNumber || 'confirmation'}.png`;
       link.href = canvas.toDataURL('image/png');
+      
+      // Trigger download
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      setTimeout(() => {
+        URL.revokeObjectURL(link.href);
+      }, 100);
     } catch (error) {
       console.error('Error generating image:', error);
       alert('Failed to generate image. Please try again.');
     }
   };
 
-  // Generate Waiver Image (PNG)
+  // Generate Waiver Image (PNG) with iPhone compatibility
   const generateWaiverImage = async () => {
     const element = waiverCaptureRef.current;
     if (!element) return;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      const rect = element.getBoundingClientRect();
+      const width = rect.width || 550;
+      const height = rect.height || 800;
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
+        width: width,
+        height: height,
+        windowWidth: width,
+        windowHeight: height,
+        onclone: (document) => {
+          const clonedElement = document.getElementById('waiver-capture-content');
+          if (clonedElement) {
+            clonedElement.style.width = width + 'px';
+            clonedElement.style.height = 'auto';
+            clonedElement.style.display = 'block';
+          }
+        }
       });
 
       const link = document.createElement('a');
       link.download = `waiver-${selectedRegistration?.userName || 'participant'}.png`;
       link.href = canvas.toDataURL('image/png');
+      
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => {
+        URL.revokeObjectURL(link.href);
+      }, 100);
     } catch (error) {
       console.error('Error generating waiver image:', error);
       alert('Failed to generate waiver image. Please try again.');
@@ -133,8 +179,8 @@ const Dashboard = () => {
 
   // Get gender label
   const getGenderLabel = (gender) => {
-    if (gender === 'male' || gender === 'Male') return '👨 Male';
-    if (gender === 'female' || gender === 'Female') return '👩 Female';
+    if (gender === 'male' || gender === 'Male') return '☑ Male';
+    if (gender === 'female' || gender === 'Female') return '☑ Female';
     return gender || 'N/A';
   };
 
@@ -318,9 +364,9 @@ const Dashboard = () => {
             </div>
 
             {/* ============================================================ */}
-            {/* CAPTURE CONTENT - For image download */}
+            {/* CAPTURE CONTENT - For image download with iPhone compatibility */}
             {/* ============================================================ */}
-            <div ref={captureRef} style={styles.captureContent}>
+            <div id="capture-content-dashboard" ref={captureRef} style={styles.captureContent}>
               <div style={styles.captureInner}>
                 {/* Header */}
                 <div style={styles.captureHeader}>
@@ -331,7 +377,7 @@ const Dashboard = () => {
 
                 {/* Personal Information */}
                 <div style={styles.captureSection}>
-                  <h3 style={styles.captureSectionTitle}>👤 Personal Information</h3>
+                  <h3 style={styles.captureSectionTitle}>Personal Information</h3>
                   <div style={styles.captureRow}>
                     <span style={styles.captureLabel}>Name</span>
                     <span style={styles.captureValue}>{selectedRegistration.userName || 'N/A'}</span>
@@ -370,7 +416,7 @@ const Dashboard = () => {
 
                 {/* Emergency Contact */}
                 <div style={styles.captureSection}>
-                  <h3 style={styles.captureSectionTitle}>🚨 Emergency Contact</h3>
+                  <h3 style={styles.captureSectionTitle}>Emergency Contact</h3>
                   <div style={styles.captureRow}>
                     <span style={styles.captureLabel}>Contact Person</span>
                     <span style={styles.captureValue}>{selectedRegistration.emergencyContact || 'N/A'}</span>
@@ -385,7 +431,7 @@ const Dashboard = () => {
 
                 {/* Event Details */}
                 <div style={styles.captureSection}>
-                  <h3 style={styles.captureSectionTitle}>🏁 Event Details</h3>
+                  <h3 style={styles.captureSectionTitle}>Event Details</h3>
                   <div style={styles.captureRow}>
                     <span style={styles.captureLabel}>Event</span>
                     <span style={styles.captureValue}>{selectedRegistration.eventName || 'N/A'}</span>
@@ -412,7 +458,7 @@ const Dashboard = () => {
 
                 {/* Payment Details */}
                 <div style={styles.captureSection}>
-                  <h3 style={styles.captureSectionTitle}>💳 Payment Details</h3>
+                  <h3 style={styles.captureSectionTitle}>Payment Details</h3>
                   <div style={styles.captureRow}>
                     <span style={styles.captureLabel}>Payment Method</span>
                     <span style={styles.captureValue}>{selectedRegistration.paymentMethod?.toUpperCase() || 'N/A'}</span>
@@ -429,7 +475,7 @@ const Dashboard = () => {
                   </div>
                   <div style={styles.captureRow}>
                     <span style={styles.captureLabel}>Status</span>
-                    <span style={{...styles.captureValue, color: '#68B42D', fontWeight: 'bold'}}>✅ {selectedRegistration.status?.toUpperCase() || 'COMPLETED'}</span>
+                    <span style={{...styles.captureValue, color: '#68B42D', fontWeight: 'bold'}}>✔ Completed</span>
                   </div>
                 </div>
 
@@ -437,16 +483,16 @@ const Dashboard = () => {
 
                 {/* Footer */}
                 <div style={styles.captureFooter}>
-                  <p>Thank you for registering! 🏃</p>
+                  <p>Thank you for registering</p>
                   <p style={styles.captureFooterSmall}>Liloan Love the Life • 2026</p>
                 </div>
               </div>
             </div>
 
             {/* ============================================================ */}
-            {/* WAIVER CAPTURE CONTENT - For image download */}
+            {/* WAIVER CAPTURE CONTENT - For image download with iPhone compatibility */}
             {/* ============================================================ */}
-            <div ref={waiverCaptureRef} style={styles.waiverCaptureContent}>
+            <div id="waiver-capture-content" ref={waiverCaptureRef} style={styles.waiverCaptureContent}>
               <div style={styles.waiverCaptureInner}>
                 <div style={styles.waiverCaptureHeader}>
                   <h1 style={styles.waiverCaptureTitle}>🏃 Liloan Love the Life</h1>
@@ -603,7 +649,7 @@ const Dashboard = () => {
                   </div>
                   <div style={styles.modalItem}>
                     <span style={styles.modalLabel}>Status</span>
-                    <span style={{...styles.modalValue, color: '#68B42D', fontWeight: 'bold'}}>✅ {selectedRegistration.status?.toUpperCase() || 'COMPLETED'}</span>
+                    <span style={{...styles.modalValue, color: '#68B42D', fontWeight: 'bold'}}>✅ Completed</span>
                   </div>
                 </div>
               </div>
@@ -665,9 +711,6 @@ const Dashboard = () => {
                     </div>
                   </div>
                 )}
-              </div>
-              <div style={styles.waiverToggleTitle1}>
-                Note: Please print both the registration form and the waiver before arriving.
               </div>
             </div>
 
@@ -1232,12 +1275,6 @@ const styles = {
     color: colors.darkBlue,
     margin: 0,
   },
-  waiverToggleTitle1: {
-    fontSize: '.9rem',
-    fontWeight: 500,
-    color: colors.blue,
-    margin: 0,
-  },
   waiverToggleArrow: {
     fontSize: '1.2rem',
     color: colors.blue,
@@ -1300,155 +1337,177 @@ const styles = {
     minWidth: '150px',
   },
   // ============================================================
-  // CAPTURE STYLES - For image generation
+  // CAPTURE STYLES - For image generation with iPhone compatibility
   // ============================================================
   captureContent: {
     position: 'absolute',
     left: '-9999px',
     top: 0,
-    width: '600px',
+    width: '500px',
+    maxWidth: '500px',
     background: 'white',
-    fontFamily: 'Arial, Helvetica, sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
     padding: 0,
+    boxSizing: 'border-box',
+    WebkitFontSmoothing: 'antialiased',
+    MozOsxFontSmoothing: 'grayscale',
   },
   captureInner: {
-    padding: '40px 35px',
+    padding: '30px 32px 25px',
     width: '100%',
     boxSizing: 'border-box',
     background: 'white',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '100%',
   },
   captureHeader: {
     textAlign: 'center',
-    marginBottom: '20px',
+    marginBottom: '16px',
   },
   captureHeaderH1: {
     fontSize: '22px',
-    color: colors.darkBlue,
-    margin: '0 0 6px 0',
+    color: '#2A499B',
+    margin: '0 0 4px 0',
+    fontWeight: '700',
   },
   captureHeaderH2: {
     fontSize: '16px',
-    color: colors.blue,
-    margin: '0 0 10px 0',
-    fontWeight: 500,
+    color: '#0A70BA',
+    margin: '0 0 6px 0',
+    fontWeight: '500',
   },
   captureDivider: {
     borderTop: '2px solid #EDDB0B',
-    margin: '14px 0',
+    margin: '8px 0',
     width: '100%',
   },
   captureSection: {
-    marginBottom: '12px',
+    marginBottom: '8px',
   },
   captureSectionTitle: {
-    fontSize: '14px',
-    fontWeight: 700,
-    color: colors.darkBlue,
-    margin: '0 0 8px 0',
+    fontSize: '13px',
+    fontWeight: '700',
+    color: '#2A499B',
+    margin: '0 0 4px 0',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   captureRow: {
     display: 'flex',
-    padding: '6px 0',
+    padding: '4px 0',
     borderBottom: '1px solid #f0f0f0',
     alignItems: 'center',
   },
   captureLabel: {
-    flex: '0 0 140px',
-    fontWeight: 600,
+    flex: '0 0 130px',
+    fontWeight: '600',
     color: '#4a5568',
     fontSize: '12px',
+    letterSpacing: '0.2px',
   },
   captureValue: {
     flex: 1,
     color: '#2d3748',
     fontSize: '12px',
-    fontWeight: 500,
+    fontWeight: '500',
+    wordBreak: 'break-word',
   },
   captureFooter: {
     textAlign: 'center',
-    marginTop: '20px',
-    paddingTop: '16px',
+    marginTop: '16px',
+    paddingTop: '12px',
     borderTop: '2px solid #EDDB0B',
   },
   captureFooterSmall: {
-    fontSize: '11px',
+    fontSize: '10px',
     color: '#a0aec0',
+    fontWeight: '400',
   },
   // ============================================================
-  // WAIVER CAPTURE STYLES - For image download
+  // WAIVER CAPTURE STYLES - For image download with iPhone compatibility
   // ============================================================
   waiverCaptureContent: {
     position: 'absolute',
     left: '-9999px',
     top: 0,
-    width: '600px',
+    width: '500px',
+    maxWidth: '500px',
     background: 'white',
-    fontFamily: 'Arial, Helvetica, sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
     padding: 0,
+    boxSizing: 'border-box',
+    WebkitFontSmoothing: 'antialiased',
+    MozOsxFontSmoothing: 'grayscale',
   },
   waiverCaptureInner: {
-    padding: '40px 35px',
+    padding: '35px 32px 25px',
     width: '100%',
     boxSizing: 'border-box',
     background: 'white',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '100%',
   },
   waiverCaptureHeader: {
     textAlign: 'center',
-    marginBottom: '25px',
+    marginBottom: '18px',
   },
   waiverCaptureTitle: {
     fontSize: '22px',
-    color: colors.darkBlue,
-    margin: '0 0 6px 0',
+    color: '#2A499B',
+    margin: '0 0 4px 0',
+    fontWeight: '700',
   },
   waiverCaptureSubtitle: {
-    fontSize: '18px',
-    color: colors.blue,
-    margin: '0 0 10px 0',
-    fontWeight: 600,
+    fontSize: '16px',
+    color: '#0A70BA',
+    margin: '0 0 6px 0',
+    fontWeight: '600',
   },
   waiverCaptureBody: {
-    margin: '16px 0',
+    margin: '10px 0',
+    flex: 1,
   },
   waiverCaptureText: {
-    fontSize: '13px',
-    lineHeight: '1.8',
+    fontSize: '12px',
+    lineHeight: '1.7',
     color: '#2d3748',
-    marginBottom: '16px',
+    marginBottom: '12px',
     textAlign: 'justify',
   },
   waiverCaptureSignature: {
-    marginTop: '24px',
-    paddingTop: '16px',
+    marginTop: '16px',
+    paddingTop: '12px',
     borderTop: '2px solid #EDDB0B',
   },
   waiverCaptureField: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '8px 0',
+    padding: '5px 0',
   },
   waiverCaptureFieldLabel: {
-    fontWeight: 600,
+    fontWeight: '600',
     color: '#4a5568',
-    fontSize: '13px',
-    minWidth: '150px',
+    fontSize: '12px',
+    minWidth: '140px',
   },
   waiverCaptureFieldValue: {
     color: '#2d3748',
-    fontSize: '13px',
+    fontSize: '12px',
     borderBottom: '1px solid #cbd5e0',
     padding: '2px 8px',
     flex: 1,
   },
   waiverCaptureFooter: {
     textAlign: 'center',
-    marginTop: '24px',
-    paddingTop: '16px',
+    marginTop: '16px',
+    paddingTop: '12px',
     borderTop: '2px solid #EDDB0B',
   },
   waiverCaptureFooterText: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#a0aec0',
   },
 };
@@ -1533,6 +1592,18 @@ styleSheet.textContent = `
     border-radius: 8px !important;
     padding: 4px 8px !important;
     margin: -4px -8px !important;
+  }
+
+  /* iPhone/iOS specific fixes */
+  @supports (-webkit-touch-callout: none) {
+    .capture-content, .waiver-capture-content {
+      width: 500px !important;
+      max-width: 500px !important;
+    }
+    
+    .capture-inner, .waiver-capture-inner {
+      padding: 30px 32px 25px !important;
+    }
   }
 
   /* Responsive */

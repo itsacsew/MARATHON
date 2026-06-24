@@ -20,14 +20,18 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
     });
   };
 
-  // Generate Image (PNG) - Captures the success details card
+  // Generate Image (PNG) - Captures the success details card with perfect fit
   const generateImage = async () => {
     const element = captureRef.current;
     if (!element) return;
 
     try {
-      // Add a small delay to ensure everything is rendered
       await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Get the actual dimensions of the content
+      const rect = element.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
 
       const canvas = await html2canvas(element, {
         scale: 2,
@@ -35,8 +39,19 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
         logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
+        width: width,
+        height: height,
+        // This ensures the content fits perfectly
+        windowWidth: width,
+        windowHeight: height,
+        onclone: (document) => {
+          // Ensure the element is fully rendered
+          const clonedElement = document.getElementById('capture-content');
+          if (clonedElement) {
+            clonedElement.style.width = width + 'px';
+            clonedElement.style.height = 'auto';
+          }
+        }
       });
 
       // Create download link
@@ -52,8 +67,8 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
 
   // Get gender label
   const getGenderLabel = (gender) => {
-    if (gender === 'male' || gender === 'Male') return '👨 Male';
-    if (gender === 'female' || gender === 'Female') return '👩 Female';
+    if (gender === 'male' || gender === 'Male') return '☑ Male';
+    if (gender === 'female' || gender === 'Female') return '☑ Female';
     return gender || 'N/A';
   };
 
@@ -72,7 +87,7 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           {/* ============================================================ */}
           {/* CAPTURE CONTENT - This will be captured as an image */}
           {/* ============================================================ */}
-          <div ref={captureRef} className="capture-content">
+          <div id="capture-content" ref={captureRef} className="capture-content">
             <div className="capture-inner">
               {/* Header */}
               <div className="capture-header">
@@ -84,42 +99,42 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
               {/* Details Grid */}
               <div className="capture-details">
                 <div className="capture-row">
-                  <span className="capture-label">👤 Name</span>
+                  <span className="capture-label">Name</span>
                   <span className="capture-value">{registrationData.userName || 'N/A'}</span>
                 </div>
                 <div className="capture-row">
-                  <span className="capture-label">🔢 Reference Number</span>
+                  <span className="capture-label">Reference Number</span>
                   <span className="capture-value reference-number">{registrationData.referenceNumber || 'N/A'}</span>
                 </div>
                 <div className="capture-row">
-                  <span className="capture-label">📅 Date of Payment</span>
+                  <span className="capture-label">Date of Payment</span>
                   <span className="capture-value">{formatDate(registrationData.paymentDate || registrationData.registeredAt)}</span>
                 </div>
                 <div className="capture-row">
-                  <span className="capture-label">⚧️ Gender</span>
+                  <span className="capture-label">Gender</span>
                   <span className="capture-value">{getGenderLabel(registrationData.gender)}</span>
                 </div>
                 <div className="capture-row">
-                  <span className="capture-label">🏁 Event</span>
+                  <span className="capture-label">Event</span>
                   <span className="capture-value">{registrationData.eventName || 'N/A'}</span>
                 </div>
                 <div className="capture-row">
-                  <span className="capture-label">👕 Shirt Size</span>
+                  <span className="capture-label">Shirt Size</span>
                   <span className="capture-value shirt-size">{registrationData.shirtSize || 'N/A'}</span>
                 </div>
                 <div className="capture-row">
-                  <span className="capture-label">💰 Fee</span>
+                  <span className="capture-label">Fee</span>
                   <span className="capture-value fee-amount">₱{registrationData.fee?.toLocaleString() || '0'}.00</span>
                 </div>
                 <div className="capture-row">
-                  <span className="capture-label">📊 Status</span>
-                  <span className="capture-value status-completed">✅ Completed</span>
+                  <span className="capture-label">Status</span>
+                  <span className="capture-value status-completed">✔ Completed</span>
                 </div>
               </div>
               
               {/* Footer */}
               <div className="capture-footer">
-                <p>Thank you for registering! 🏃</p>
+                <p>Thank you for registering</p>
                 <p className="capture-footer-small">Liloan Love the Life • 2026</p>
               </div>
             </div>
@@ -333,49 +348,56 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           left: -9999px;
           top: 0;
           width: 500px;
+          max-width: 500px;
           background: white;
-          font-family: Arial, Helvetica, sans-serif;
+          font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
           padding: 0;
+          box-sizing: border-box;
         }
 
         .capture-inner {
-          padding: 40px 35px;
+          padding: 30px 35px 25px;
           width: 100%;
           box-sizing: border-box;
           background: white;
+          display: flex;
+          flex-direction: column;
+          min-height: 100%;
         }
 
         .capture-header {
           text-align: center;
-          margin-bottom: 25px;
+          margin-bottom: 18px;
         }
 
         .capture-header h1 {
           font-size: 22px;
           color: #2A499B;
-          margin: 0 0 6px 0;
+          margin: 0 0 4px 0;
+          font-weight: 700;
         }
 
         .capture-header h2 {
           font-size: 16px;
           color: #0A70BA;
-          margin: 0 0 10px 0;
+          margin: 0 0 8px 0;
           font-weight: 500;
         }
 
         .capture-divider {
           border-top: 2px solid #EDDB0B;
-          margin: 14px 0;
+          margin: 10px 0;
           width: 100%;
         }
 
         .capture-details {
-          margin: 16px 0;
+          margin: 10px 0;
+          flex: 1;
         }
 
         .capture-row {
           display: flex;
-          padding: 8px 0;
+          padding: 6px 0;
           border-bottom: 1px solid #f0f0f0;
           align-items: center;
         }
@@ -389,6 +411,7 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           font-weight: 600;
           color: #4a5568;
           font-size: 13px;
+          letter-spacing: 0.3px;
         }
 
         .capture-value {
@@ -396,6 +419,7 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           color: #2d3748;
           font-size: 13px;
           font-weight: 500;
+          word-break: break-word;
         }
 
         .reference-number {
@@ -421,20 +445,22 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
 
         .capture-footer {
           text-align: center;
-          margin-top: 30px;
-          padding-top: 16px;
+          margin-top: 20px;
+          padding-top: 14px;
           border-top: 2px solid #EDDB0B;
         }
 
         .capture-footer p {
-          margin: 4px 0;
+          margin: 3px 0;
           color: #4a5568;
           font-size: 13px;
+          font-weight: 500;
         }
 
         .capture-footer-small {
           font-size: 11px !important;
           color: #a0aec0 !important;
+          font-weight: 400 !important;
         }
 
         /* Mobile Responsive */
@@ -482,6 +508,33 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           .success-subtitle {
             font-size: 0.85rem;
           }
+
+          /* Capture content responsive */
+          .capture-content {
+            width: 400px !important;
+            max-width: 400px !important;
+          }
+
+          .capture-inner {
+            padding: 25px 25px 20px !important;
+          }
+
+          .capture-label {
+            flex: 0 0 110px !important;
+            font-size: 12px !important;
+          }
+
+          .capture-value {
+            font-size: 12px !important;
+          }
+
+          .capture-header h1 {
+            font-size: 20px !important;
+          }
+
+          .capture-header h2 {
+            font-size: 14px !important;
+          }
         }
 
         @media (max-width: 380px) {
@@ -506,6 +559,36 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           .success-title {
             font-size: 1.1rem;
           }
+
+          .capture-content {
+            width: 340px !important;
+            max-width: 340px !important;
+          }
+
+          .capture-inner {
+            padding: 20px 20px 16px !important;
+          }
+
+          .capture-label {
+            flex: 0 0 90px !important;
+            font-size: 11px !important;
+          }
+
+          .capture-value {
+            font-size: 11px !important;
+          }
+
+          .capture-header h1 {
+            font-size: 18px !important;
+          }
+
+          .capture-header h2 {
+            font-size: 13px !important;
+          }
+
+          .capture-row {
+            padding: 4px 0 !important;
+          }
         }
 
         /* Medium screens (481px - 768px) */
@@ -517,6 +600,27 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           .success-details {
             grid-template-columns: 1fr 1fr;
             gap: 8px;
+          }
+
+          .capture-content {
+            width: 450px !important;
+            max-width: 450px !important;
+          }
+        }
+
+        /* Large screens and tablets */
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .capture-content {
+            width: 480px !important;
+            max-width: 480px !important;
+          }
+        }
+
+        /* Desktop screens */
+        @media (min-width: 1025px) {
+          .capture-content {
+            width: 500px !important;
+            max-width: 500px !important;
           }
         }
       `}</style>

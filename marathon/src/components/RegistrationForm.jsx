@@ -979,7 +979,7 @@ const styles = {
     marginLeft: 55
   },
   rowItem2: {
-    width: '122%',
+    width: '120%',
     minWidth: 0,
   },
   genderButtons: {

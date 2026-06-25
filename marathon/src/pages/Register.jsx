@@ -93,37 +93,6 @@ const Register = () => {
               placeholder="Confirm your password"
             />
           </div>
-          
-          {/* Fixed: Checkbox with horizontal alignment using inline styles */}
-          <div className="form-group" style={{ marginBottom: '16px' }}>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              color: '#2A499B',
-              fontSize: '0.95rem',
-              padding: '4px 0'
-            }}>
-              <input
-                type="checkbox"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  minWidth: '20px',
-                  cursor: 'pointer',
-                  accentColor: '#0A70BA',
-                  margin: 0,
-                  padding: 0,
-                  flexShrink: 0
-                }}
-              />
-              <span>Reg. as Admin</span>
-            </label>
-          </div>
 
           {isAdmin && (
             <div className="form-group">

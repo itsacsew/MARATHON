@@ -30,7 +30,7 @@ const BLOOD_TYPE_OPTIONS = [
   'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'
 ];
 
-const RegistrationForm = () => {
+const RegistrationForm = ({ onRegistrationSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     birthdate: '',
@@ -103,47 +103,47 @@ const RegistrationForm = () => {
     // Validate all required fields
     if (!formData.name.trim()) {
       setSaveMessage('❌ Please enter your full name');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.birthdate) {
       setSaveMessage('❌ Please enter your birthdate');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.gender) {
       setSaveMessage('❌ Please select your gender');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.bloodType) {
       setSaveMessage('❌ Please select your blood type');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.mobileNumber.trim()) {
       setSaveMessage('❌ Please enter your mobile number');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.email.trim()) {
       setSaveMessage('❌ Please enter your email address');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.homeAddress.trim()) {
       setSaveMessage('❌ Please enter your home address');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.emergencyContact.trim()) {
       setSaveMessage('❌ Please enter emergency contact person');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     if (!formData.emergencyNumber.trim()) {
       setSaveMessage('❌ Please enter emergency contact number');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setTimeout(() => setSaveMessage(''), 30000);
       return;
     }
     // Open category modal
@@ -291,6 +291,7 @@ const RegistrationForm = () => {
       setIsPaymentModalOpen(false);
       setIsSuccessModalOpen(true);
       
+      // Reset form after success
       setTimeout(() => {
         setFormData({
           name: '',
@@ -351,6 +352,10 @@ const RegistrationForm = () => {
   const closeSuccessModal = () => {
     setIsSuccessModalOpen(false);
     setRegistrationData(null);
+    // ✅ TRIGGER REFRESH IN DASHBOARD
+    if (onRegistrationSuccess) {
+      onRegistrationSuccess();
+    }
   };
 
   const handleBackToCategory = () => {

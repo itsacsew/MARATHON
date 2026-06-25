@@ -5,25 +5,36 @@ import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 
 const Dashboard = () => {
-  const { currentUser, userData, logout, getUserRegistrations } = useAuth();
+  const { currentUser, userData, logout, getUserRegistrations, updateRegistration } = useAuth();
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isWaiverOpen, setIsWaiverOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({});
+  const [saveSuccess, setSaveSuccess] = useState('');
+  const [saveError, setSaveError] = useState('');
   const captureRef = useRef(null);
   const waiverCaptureRef = useRef(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchRegistrations = async () => {
-      if (currentUser) {
-        const userRegs = await getUserRegistrations(currentUser.uid);
-        setRegistrations(userRegs);
-      }
+  // ✅ Function to fetch registrations
+  const fetchRegistrations = async () => {
+    if (currentUser) {
+      setLoading(true);
+      const userRegs = await getUserRegistrations(currentUser.uid);
+      setRegistrations(userRegs);
       setLoading(false);
-    };
+    }
+  };
 
+  // ✅ Handle registration success - refresh the list
+  const handleRegistrationSuccess = () => {
+    fetchRegistrations();
+  };
+
+  useEffect(() => {
     fetchRegistrations();
   }, [currentUser, getUserRegistrations]);
 
@@ -36,19 +47,80 @@ const Dashboard = () => {
     }
   };
 
-  // Generate Image (PNG) for view modal with perfect fit
-  const generateImage = async () => {
-    const element = captureRef.current;
-    if (!element) return;
+  // ============================================================
+  // FUNCTION 1: DOWNLOAD PAYMENT CARD (Simple card)
+  // ============================================================
+  const generatePaymentCardImage = async (registration) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    tempDiv.style.width = '500px';
+    tempDiv.style.maxWidth = '500px';
+    tempDiv.style.background = 'white';
+    tempDiv.style.fontFamily = 'Segoe UI, Arial, Helvetica, sans-serif';
+    tempDiv.style.padding = '0';
+    tempDiv.style.boxSizing = 'border-box';
+    
+    tempDiv.innerHTML = `
+      <div style="padding: 30px 35px 25px; width: 100%; box-sizing: border-box; background: white;">
+        <div style="text-align: center; margin-bottom: 18px;">
+          <h1 style="font-size: 22px; color: #2A499B; margin: 0 0 4px 0; font-weight: 700;">🏃 Liloan Love the Life</h1>
+          <h2 style="font-size: 16px; color: #0A70BA; margin: 0 0 8px 0; font-weight: 500;">Registration Confirmation</h2>
+          <div style="border-top: 2px solid #EDDB0B; margin: 10px 0; width: 100%;"></div>
+        </div>
+        
+        <div style="margin: 10px 0; flex: 1;">
+          <div style="display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Name</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.userName || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Reference Number</span>
+            <span style="flex: 1; color: #0A70BA; font-size: 13px; font-weight: 700; font-family: 'Courier New', monospace;">${registration.referenceNumber || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Event</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.eventName || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Category</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.category || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Shirt Size</span>
+            <span style="flex: 1; color: #0A70BA; font-size: 13px; font-weight: 700;">${registration.shirtSize || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Fee</span>
+            <span style="flex: 1; color: #2A499B; font-size: 13px; font-weight: 700;">₱${registration.fee?.toLocaleString() || '0'}.00</span>
+          </div>
+          <div style="display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Status</span>
+            <span style="flex: 1; color: #68B42D; font-size: 13px; font-weight: 700;">✔ Completed</span>
+          </div>
+          <div style="display: flex; padding: 6px 0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Payment Date</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${new Date(registration.paymentDate || registration.registeredAt).toLocaleString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+          </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; padding-top: 14px; border-top: 2px solid #EDDB0B;">
+          <p style="margin: 3px 0; color: #4a5568; font-size: 13px; font-weight: 500;">Thank you for registering</p>
+          <p style="margin: 3px 0; font-size: 11px; color: #a0aec0; font-weight: 400;">Liloan Love the Life • 2026</p>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(tempDiv);
 
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
-
-      const rect = element.getBoundingClientRect();
+      const rect = tempDiv.getBoundingClientRect();
       const width = rect.width;
       const height = rect.height;
 
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
         logging: false,
@@ -58,38 +130,194 @@ const Dashboard = () => {
         height: height,
         windowWidth: width,
         windowHeight: height,
-        onclone: (document) => {
-          const clonedElement = document.getElementById('capture-content-dashboard');
-          if (clonedElement) {
-            clonedElement.style.width = width + 'px';
-            clonedElement.style.height = 'auto';
-          }
-        }
       });
 
       const link = document.createElement('a');
-      link.download = `registration-${selectedRegistration?.referenceNumber || 'confirmation'}.png`;
+      link.download = `payment-${registration.referenceNumber || 'confirmation'}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (error) {
-      console.error('Error generating image:', error);
-      alert('Failed to generate image. Please try again.');
+      console.error('Error generating payment image:', error);
+      alert('Failed to generate payment image. Please try again.');
+    } finally {
+      document.body.removeChild(tempDiv);
     }
   };
 
-  // Generate Waiver Image (PNG) with perfect fit
-  const generateWaiverImage = async () => {
-    const element = waiverCaptureRef.current;
-    if (!element) return;
+  // ============================================================
+  // FUNCTION 2: DOWNLOAD FULL REGISTRATION FORM (With all details)
+  // ============================================================
+  const generateFullRegistrationImage = async (registration) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    tempDiv.style.width = '550px';
+    tempDiv.style.maxWidth = '550px';
+    tempDiv.style.background = 'white';
+    tempDiv.style.fontFamily = 'Segoe UI, Arial, Helvetica, sans-serif';
+    tempDiv.style.padding = '0';
+    tempDiv.style.boxSizing = 'border-box';
+    
+    // Format date helper
+    const formatDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    };
+
+    const formatDateWithTime = (dateString) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+
+    const getGenderLabel = (gender) => {
+      if (gender === 'male' || gender === 'Male') return '☑ Male';
+      if (gender === 'female' || gender === 'Female') return '☑ Female';
+      return gender || 'N/A';
+    };
+
+    tempDiv.innerHTML = `
+      <div style="padding: 30px 35px 25px; width: 100%; box-sizing: border-box; background: white;">
+        <div style="text-align: center; margin-bottom: 18px;">
+          <h1 style="font-size: 22px; color: #2A499B; margin: 0 0 4px 0; font-weight: 700;">🏃 Liloan Love the Life</h1>
+          <h2 style="font-size: 16px; color: #0A70BA; margin: 0 0 8px 0; font-weight: 500;">Registration Confirmation</h2>
+          <div style="border-top: 2px solid #EDDB0B; margin: 10px 0; width: 100%;"></div>
+        </div>
+
+        <!-- Personal Information -->
+        <div style="margin-bottom: 10px;">
+          <h3 style="font-size: 14px; font-weight: 700; color: #2A499B; margin: 0 0 6px 0;">Personal Information</h3>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Name</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.userName || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Birthdate</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${formatDate(registration.birthdate) || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Age</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.age || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Gender</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${getGenderLabel(registration.gender)}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Blood Type</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.bloodType || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Mobile Number</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.mobileNumber || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Email</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.email || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Home Address</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.homeAddress || 'N/A'}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 2px solid #EDDB0B; margin: 10px 0;"></div>
+
+        <!-- Emergency Contact -->
+        <div style="margin-bottom: 10px;">
+          <h3 style="font-size: 14px; font-weight: 700; color: #2A499B; margin: 0 0 6px 0;">Emergency Contact</h3>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Contact Person</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.emergencyContact || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Contact Number</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.emergencyNumber || 'N/A'}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 2px solid #EDDB0B; margin: 10px 0;"></div>
+
+        <!-- Event Details -->
+        <div style="margin-bottom: 10px;">
+          <h3 style="font-size: 14px; font-weight: 700; color: #2A499B; margin: 0 0 6px 0;">Event Details</h3>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Event</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.eventName || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Category</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.category || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Distance</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.distance || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Shirt Size</span>
+            <span style="flex: 1; color: #0A70BA; font-size: 13px; font-weight: 700;">${registration.shirtSize || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Fee</span>
+            <span style="flex: 1; color: #2A499B; font-size: 13px; font-weight: 700;">₱${registration.fee?.toLocaleString() || '0'}.00</span>
+          </div>
+        </div>
+
+        <div style="border-top: 2px solid #EDDB0B; margin: 10px 0;"></div>
+
+        <!-- Payment Details -->
+        <div style="margin-bottom: 10px;">
+          <h3 style="font-size: 14px; font-weight: 700; color: #2A499B; margin: 0 0 6px 0;">Payment Details</h3>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Payment Method</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${registration.paymentMethod?.toUpperCase() || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Reference Number</span>
+            <span style="flex: 1; color: #0A70BA; font-size: 13px; font-weight: 700; font-family: 'Courier New', monospace;">${registration.referenceNumber || 'N/A'}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; border-bottom: 1px solid #f0f0f0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Payment Date</span>
+            <span style="flex: 1; color: #2d3748; font-size: 13px; font-weight: 500;">${formatDateWithTime(registration.paymentDate || registration.registeredAt)}</span>
+          </div>
+          <div style="display: flex; padding: 5px 0; align-items: center;">
+            <span style="flex: 0 0 140px; font-weight: 600; color: #4a5568; font-size: 13px;">Status</span>
+            <span style="flex: 1; color: #68B42D; font-size: 13px; font-weight: 700;">✔ Completed</span>
+          </div>
+        </div>
+
+        <div style="border-top: 2px solid #EDDB0B; margin: 10px 0;"></div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 10px; padding-top: 12px;">
+          <p style="margin: 3px 0; color: #4a5568; font-size: 13px; font-weight: 500;">Thank you for registering</p>
+          <p style="margin: 3px 0; font-size: 11px; color: #a0aec0; font-weight: 400;">Liloan Love the Life • 2026</p>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(tempDiv);
 
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
-
-      const rect = element.getBoundingClientRect();
+      const rect = tempDiv.getBoundingClientRect();
       const width = rect.width;
       const height = rect.height;
 
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
         logging: false,
@@ -99,24 +327,276 @@ const Dashboard = () => {
         height: height,
         windowWidth: width,
         windowHeight: height,
-        onclone: (document) => {
-          const clonedElement = document.getElementById('waiver-capture-content');
-          if (clonedElement) {
-            clonedElement.style.width = width + 'px';
-            clonedElement.style.height = 'auto';
-          }
-        }
       });
 
       const link = document.createElement('a');
-      link.download = `waiver-${selectedRegistration?.userName || 'participant'}.png`;
+      link.download = `registration-form-${registration.referenceNumber || 'confirmation'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Error generating registration form image:', error);
+      alert('Failed to generate registration form image. Please try again.');
+    } finally {
+      document.body.removeChild(tempDiv);
+    }
+  };
+
+  // ============================================================
+  // FUNCTION 3: DOWNLOAD WAIVER
+  // ============================================================
+  const generateWaiverImageFromCard = async (registration) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    tempDiv.style.width = '550px';
+    tempDiv.style.maxWidth = '550px';
+    tempDiv.style.background = 'white';
+    tempDiv.style.fontFamily = 'Segoe UI, Arial, Helvetica, sans-serif';
+    tempDiv.style.padding = '0';
+    tempDiv.style.boxSizing = 'border-box';
+    
+    tempDiv.innerHTML = `
+      <div style="padding: 35px 35px 25px; width: 100%; box-sizing: border-box; background: white; display: flex; flex-direction: column; min-height: 100%;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h1 style="font-size: 22px; color: #2A499B; margin: 0 0 4px 0; font-weight: 700;">🏃 Liloan Love the Life</h1>
+          <h2 style="font-size: 17px; color: #0A70BA; margin: 0 0 8px 0; font-weight: 600;">WAIVER AND RELEASE OF LIABILITY</h2>
+          <div style="border-top: 2px solid #EDDB0B; margin: 10px 0; width: 100%;"></div>
+        </div>
+
+        <div style="margin: 12px 0; flex: 1;">
+          <p style="font-size: 13px; line-height: 1.8; color: #2d3748; margin-bottom: 14px; text-align: justify;">
+            I hereby certify that I am physically fit and in good health to participate in the Lilo-Wawa Half Marathon. I understand that running is a strenuous physical activity that involves inherent risks, including injury, illness, dehydration, accidents, and other unforeseen circumstances.
+          </p>
+
+          <p style="font-size: 13px; line-height: 1.8; color: #2d3748; margin-bottom: 14px; text-align: justify;">
+            I acknowledge that food and refreshments may be provided during the event and accept full responsibility for any allergies, dietary restrictions, or adverse reactions resulting from their consumption.
+          </p>
+
+          <p style="font-size: 13px; line-height: 1.8; color: #2d3748; margin-bottom: 14px; text-align: justify;">
+            I further understand that the organizers will have standby medical personnel and first-aid assistance available during the event. However, I acknowledge that such assistance does not eliminate all risks associated with participation, and I voluntarily assume full responsibility for my health and safety.
+          </p>
+
+          <p style="font-size: 13px; line-height: 1.8; color: #2d3748; margin-bottom: 14px; text-align: justify;">
+            In consideration of my participation, I hereby release and hold harmless the organizers, sponsors, partners, volunteers, medical personnel, and the Municipality of Liloan from any liability, claims, damages, injuries, losses, or expenses arising from or related to my participation in the event, except in cases of gross negligence or willful misconduct.
+          </p>
+
+          <p style="font-size: 13px; line-height: 1.8; color: #2d3748; margin-bottom: 14px; text-align: justify;">
+            By registering for the Lilo-Wawa Half Marathon, I confirm that I have read, understood, and voluntarily agreed to this waiver and release of liability.
+          </p>
+
+          <div style="margin-top: 20px; padding-top: 14px; border-top: 2px solid #EDDB0B;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0;">
+              <span style="font-weight: 600; color: #4a5568; font-size: 13px; min-width: 150px;">Participant's Name:</span>
+              <span style="color: #2d3748; font-size: 13px; border-bottom: 1px solid #cbd5e0; padding: 2px 8px; flex: 1;">${registration.userName || '________________________'}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0;">
+              <span style="font-weight: 600; color: #4a5568; font-size: 13px; min-width: 150px;">Signature:</span>
+              <span style="color: #2d3748; font-size: 13px; border-bottom: 1px solid #cbd5e0; padding: 2px 8px; flex: 1;">_______________________________</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0;">
+              <span style="font-weight: 600; color: #4a5568; font-size: 13px; min-width: 150px;">Date:</span>
+              <span style="color: #2d3748; font-size: 13px; border-bottom: 1px solid #cbd5e0; padding: 2px 8px; flex: 1;">${new Date().toLocaleString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 18px; padding-top: 12px; border-top: 2px solid #EDDB0B;">
+          <p style="font-size: 12px; color: #a0aec0;">Liloan Love the Life • 2026</p>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(tempDiv);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const rect = tempDiv.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        allowTaint: true,
+        width: width,
+        height: height,
+        windowWidth: width,
+        windowHeight: height,
+      });
+
+      const link = document.createElement('a');
+      link.download = `waiver-${registration.userName || 'participant'}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (error) {
       console.error('Error generating waiver image:', error);
       alert('Failed to generate waiver image. Please try again.');
+    } finally {
+      document.body.removeChild(tempDiv);
     }
   };
+
+  // ✅ HANDLE EDIT - Populate edit form with registration data
+  const handleEditClick = () => {
+    setIsEditing(true);
+    setEditFormData({
+      userName: selectedRegistration?.userName || '',
+      birthdate: selectedRegistration?.birthdate || '',
+      age: selectedRegistration?.age || '',
+      gender: selectedRegistration?.gender || '',
+      bloodType: selectedRegistration?.bloodType || '',
+      mobileNumber: selectedRegistration?.mobileNumber || '',
+      email: selectedRegistration?.email || '',
+      homeAddress: selectedRegistration?.homeAddress || '',
+      emergencyContact: selectedRegistration?.emergencyContact || '',
+      emergencyNumber: selectedRegistration?.emergencyNumber || '',
+    });
+    setSaveSuccess('');
+    setSaveError('');
+  };
+
+  // ✅ HANDLE CANCEL EDIT
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditFormData({});
+    setSaveSuccess('');
+    setSaveError('');
+  };
+
+  // ✅ HANDLE INPUT CHANGE IN EDIT MODE
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // ✅ HANDLE BIRTHDATE CHANGE - Auto calculate age
+  const handleEditBirthdateChange = (e) => {
+    const birthdate = e.target.value;
+    const age = calculateAge(birthdate);
+    setEditFormData(prev => ({
+      ...prev,
+      birthdate: birthdate,
+      age: age
+    }));
+  };
+
+  // ✅ Calculate age helper
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return '';
+    const today = new Date();
+    const birthDate = new Date(birthdate);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // ✅ HANDLE SAVE EDIT - Update Firebase
+  const handleSaveEdit = async () => {
+    if (!selectedRegistration || !currentUser) return;
+
+    // Validate required fields
+    if (!editFormData.userName?.trim()) {
+      setSaveError('❌ Please enter your full name');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.birthdate) {
+      setSaveError('❌ Please enter your birthdate');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.gender) {
+      setSaveError('❌ Please select your gender');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.bloodType) {
+      setSaveError('❌ Please select your blood type');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.mobileNumber?.trim()) {
+      setSaveError('❌ Please enter your mobile number');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.email?.trim()) {
+      setSaveError('❌ Please enter your email address');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.homeAddress?.trim()) {
+      setSaveError('❌ Please enter your home address');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.emergencyContact?.trim()) {
+      setSaveError('❌ Please enter emergency contact person');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.emergencyNumber?.trim()) {
+      setSaveError('❌ Please enter emergency contact number');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+
+    try {
+      const updateData = {
+        userName: editFormData.userName,
+        birthdate: editFormData.birthdate,
+        age: editFormData.age,
+        gender: editFormData.gender,
+        bloodType: editFormData.bloodType,
+        mobileNumber: editFormData.mobileNumber,
+        email: editFormData.email,
+        homeAddress: editFormData.homeAddress,
+        emergencyContact: editFormData.emergencyContact,
+        emergencyNumber: editFormData.emergencyNumber,
+        updatedAt: new Date().toISOString()
+      };
+
+      await updateRegistration(currentUser.uid, selectedRegistration.id, updateData);
+
+      setSelectedRegistration({
+        ...selectedRegistration,
+        ...updateData
+      });
+
+      setRegistrations(prev => prev.map(reg => 
+        reg.id === selectedRegistration.id 
+          ? { ...reg, ...updateData }
+          : reg
+      ));
+
+      setIsEditing(false);
+      setSaveSuccess('✅ Registration updated successfully!');
+      setTimeout(() => setSaveSuccess(''), 3000);
+
+    } catch (error) {
+      console.error('Error updating registration:', error);
+      setSaveError('❌ Failed to update registration. Please try again.');
+      setTimeout(() => setSaveError(''), 3000);
+    }
+  };
+
+  const GENDER_OPTIONS = [
+    { id: 'Male', label: '☑ Male' },
+    { id: 'Female', label: '☑ Female' }
+  ];
+
+  const BLOOD_TYPE_OPTIONS = [
+    'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'
+  ];
 
   if (!currentUser) {
     navigate('/login');
@@ -132,7 +612,6 @@ const Dashboard = () => {
     );
   }
 
-  // Format date helper
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -143,7 +622,6 @@ const Dashboard = () => {
     });
   };
 
-  // Format date with time
   const formatDateWithTime = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -157,14 +635,12 @@ const Dashboard = () => {
     });
   };
 
-  // Get gender label
   const getGenderLabel = (gender) => {
     if (gender === 'male' || gender === 'Male') return '☑ Male';
     if (gender === 'female' || gender === 'Female') return '☑ Female';
     return gender || 'N/A';
   };
 
-  // Get initials for avatar
   const getInitials = (name) => {
     if (!name) return '👤';
     const names = name.split(' ');
@@ -172,7 +648,6 @@ const Dashboard = () => {
     return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
   };
 
-  // Get random color for avatar based on name
   const getAvatarColor = (name) => {
     const colors = ['#EDDB0B', '#68B42D', '#00A8AB', '#0A70BA', '#2A499B'];
     if (!name) return colors[0];
@@ -183,35 +658,38 @@ const Dashboard = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // Open view modal
   const handleViewRegistration = (registration) => {
     setSelectedRegistration(registration);
     setIsViewModalOpen(true);
     setIsWaiverOpen(false);
+    setIsEditing(false);
+    setEditFormData({});
+    setSaveSuccess('');
+    setSaveError('');
   };
 
-  // Close view modal
   const closeViewModal = () => {
     setIsViewModalOpen(false);
     setSelectedRegistration(null);
     setIsWaiverOpen(false);
+    setIsEditing(false);
+    setEditFormData({});
+    setSaveSuccess('');
+    setSaveError('');
   };
 
-  // Toggle waiver
   const toggleWaiver = () => {
     setIsWaiverOpen(!isWaiverOpen);
   };
 
   return (
     <div style={styles.dashboard}>
-      {/* Animated Background */}
       <div style={styles.backgroundEffects}>
         <div style={styles.glow1}></div>
         <div style={styles.glow2}></div>
         <div style={styles.glow3}></div>
       </div>
 
-      {/* Header Section */}
       <header style={styles.header}>
         <div style={styles.headerContent}>
           <div style={styles.userSection}>
@@ -246,11 +724,9 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <div style={styles.content}>
-        <RegistrationForm />
+        <RegistrationForm onRegistrationSuccess={handleRegistrationSuccess} />
         
-        {/* Registrations History */}
         {registrations.length > 0 && (
           <div style={styles.historySection}>
             <div style={styles.historyHeader}>
@@ -314,13 +790,30 @@ const Dashboard = () => {
                         <span style={styles.viewIcon}>👁️</span>
                         View Details
                       </button>
-                      <div style={styles.progressBar}>
-                        <div style={{
-                          ...styles.progressFill,
-                          width: reg.status === 'completed' ? '100%' :
-                                 reg.status === 'pending' ? '50%' : '25%'
-                        }}></div>
-                      </div>
+                      <button 
+                        style={styles.downloadPaymentBtn}
+                        onClick={() => generatePaymentCardImage(reg)}
+                        title="Download Payment Card"
+                      >
+                        <span style={styles.imageIcon}>🖼️</span>
+                        Download Payment
+                      </button>
+                      <button 
+                        style={styles.downloadImageBtn}
+                        onClick={() => generateFullRegistrationImage(reg)}
+                        title="Download Full Registration Form"
+                      >
+                        <span style={styles.imageIcon}>🖼️</span>
+                        Download Image
+                      </button>
+                      <button 
+                        style={styles.downloadWaiverBtn}
+                        onClick={() => generateWaiverImageFromCard(reg)}
+                        title="Download Waiver"
+                      >
+                        <span style={styles.imageIcon}>🖼️</span>
+                        Download Waiver
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -330,9 +823,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* ============================================================ */}
-      {/* VIEW MODAL - Shows full registration details */}
-      {/* ============================================================ */}
+      {/* VIEW MODAL */}
       {isViewModalOpen && selectedRegistration && (
         <div style={styles.modalOverlay} onClick={closeViewModal}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -340,22 +831,30 @@ const Dashboard = () => {
 
             <div style={styles.modalHeader}>
               <h2 style={styles.modalTitle}>📋 Registration Details</h2>
-              <p style={styles.modalSubtitle}>Complete registration information</p>
+              <p style={styles.modalSubtitle}>
+                {isEditing ? '✏️ Edit your information' : 'Complete registration information'}
+              </p>
+              {saveSuccess && (
+                <div style={{...styles.saveMessage, background: 'rgba(104, 180, 45, 0.12)', borderColor: '#68B42D', color: '#276749'}}>
+                  {saveSuccess}
+                </div>
+              )}
+              {saveError && (
+                <div style={{...styles.saveMessage, background: 'rgba(254, 215, 215, 0.9)', borderColor: '#fc8181', color: '#c53030'}}>
+                  {saveError}
+                </div>
+              )}
             </div>
 
-            {/* ============================================================ */}
-            {/* CAPTURE CONTENT - For image download with perfect fit */}
-            {/* ============================================================ */}
+            {/* CAPTURE CONTENT for modal image */}
             <div id="capture-content-dashboard" ref={captureRef} style={styles.captureContent}>
               <div style={styles.captureInner}>
-                {/* Header */}
                 <div style={styles.captureHeader}>
                   <h1 style={styles.captureHeaderH1}>🏃 Liloan Love the Life</h1>
                   <h2 style={styles.captureHeaderH2}>Registration Confirmation</h2>
                   <div style={styles.captureDivider}></div>
                 </div>
 
-                {/* Personal Information */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Personal Information</h3>
                   <div style={styles.captureRow}>
@@ -394,7 +893,6 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Emergency Contact */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Emergency Contact</h3>
                   <div style={styles.captureRow}>
@@ -409,7 +907,6 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Event Details */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Event Details</h3>
                   <div style={styles.captureRow}>
@@ -436,7 +933,6 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Payment Details */}
                 <div style={styles.captureSection}>
                   <h3 style={styles.captureSectionTitle}>Payment Details</h3>
                   <div style={styles.captureRow}>
@@ -461,7 +957,6 @@ const Dashboard = () => {
 
                 <div style={styles.captureDivider}></div>
 
-                {/* Footer */}
                 <div style={styles.captureFooter}>
                   <p>Thank you for registering</p>
                   <p style={styles.captureFooterSmall}>Liloan Love the Life • 2026</p>
@@ -469,9 +964,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* ============================================================ */}
-            {/* WAIVER CAPTURE CONTENT - For image download with perfect fit */}
-            {/* ============================================================ */}
+            {/* WAIVER CAPTURE CONTENT */}
             <div id="waiver-capture-content" ref={waiverCaptureRef} style={styles.waiverCaptureContent}>
               <div style={styles.waiverCaptureInner}>
                 <div style={styles.waiverCaptureHeader}>
@@ -484,19 +977,15 @@ const Dashboard = () => {
                   <p style={styles.waiverCaptureText}>
                     I hereby certify that I am physically fit and in good health to participate in the Lilo-Wawa Half Marathon. I understand that running is a strenuous physical activity that involves inherent risks, including injury, illness, dehydration, accidents, and other unforeseen circumstances.
                   </p>
-
                   <p style={styles.waiverCaptureText}>
                     I acknowledge that food and refreshments may be provided during the event and accept full responsibility for any allergies, dietary restrictions, or adverse reactions resulting from their consumption.
                   </p>
-
                   <p style={styles.waiverCaptureText}>
                     I further understand that the organizers will have standby medical personnel and first-aid assistance available during the event. However, I acknowledge that such assistance does not eliminate all risks associated with participation, and I voluntarily assume full responsibility for my health and safety.
                   </p>
-
                   <p style={styles.waiverCaptureText}>
                     In consideration of my participation, I hereby release and hold harmless the organizers, sponsors, partners, volunteers, medical personnel, and the Municipality of Liloan from any liability, claims, damages, injuries, losses, or expenses arising from or related to my participation in the event, except in cases of gross negligence or willful misconduct.
                   </p>
-
                   <p style={styles.waiverCaptureText}>
                     By registering for the Lilo-Wawa Half Marathon, I confirm that I have read, understood, and voluntarily agreed to this waiver and release of liability.
                   </p>
@@ -524,65 +1013,197 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* ============================================================ */}
-            {/* MODAL BODY - Display all registration details with Waiver toggle */}
-            {/* ============================================================ */}
             <div style={styles.modalBody}>
-              {/* Personal Information */}
               <div style={styles.modalSection}>
-                <h3 style={styles.modalSectionTitle}>👤 Personal Information</h3>
+                <div style={styles.sectionHeader}>
+                  <h3 style={styles.modalSectionTitle}>👤 Personal Information</h3>
+                  {!isEditing && (
+                    <button style={styles.editBtnSmall} onClick={handleEditClick}>
+                      ✏️ Edit
+                    </button>
+                  )}
+                </div>
                 <div style={styles.modalGrid}>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Name</span>
-                    <span style={styles.modalValue}>{selectedRegistration.userName || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Birthdate</span>
-                    <span style={styles.modalValue}>{formatDateWithTime(selectedRegistration.birthdate) || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Age</span>
-                    <span style={styles.modalValue}>{selectedRegistration.age || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Gender</span>
-                    <span style={styles.modalValue}>{getGenderLabel(selectedRegistration.gender)}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Blood Type</span>
-                    <span style={styles.modalValue}>{selectedRegistration.bloodType || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Mobile Number</span>
-                    <span style={styles.modalValue}>{selectedRegistration.mobileNumber || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Email</span>
-                    <span style={styles.modalValue}>{selectedRegistration.email || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Home Address</span>
-                    <span style={styles.modalValue}>{selectedRegistration.homeAddress || 'N/A'}</span>
-                  </div>
+                  {isEditing ? (
+                    <>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Name <span style={styles.required}>*</span></span>
+                        <input
+                          type="text"
+                          name="userName"
+                          value={editFormData.userName || ''}
+                          onChange={handleEditInputChange}
+                          style={styles.editInput}
+                        />
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Birthdate <span style={styles.required}>*</span></span>
+                        <input
+                          type="date"
+                          name="birthdate"
+                          value={editFormData.birthdate || ''}
+                          onChange={handleEditBirthdateChange}
+                          style={styles.editInput}
+                        />
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Age</span>
+                        <input
+                          type="text"
+                          name="age"
+                          value={editFormData.age || ''}
+                          style={{...styles.editInput, background: '#f7fafc'}}
+                          disabled
+                        />
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Gender <span style={styles.required}>*</span></span>
+                        <div style={styles.genderEditGroup}>
+                          {GENDER_OPTIONS.map((gender) => (
+                            <button
+                              key={gender.id}
+                              style={{
+                                ...styles.genderEditBtn,
+                                borderColor: editFormData.gender === gender.id ? '#0A70BA' : 'rgba(0, 168, 171, 0.20)',
+                                background: editFormData.gender === gender.id 
+                                  ? 'linear-gradient(135deg, #0A70BA, #2A499B)'
+                                  : 'rgba(255, 255, 255, 0.7)',
+                                color: editFormData.gender === gender.id ? 'white' : '#4a5568',
+                              }}
+                              onClick={() => setEditFormData(prev => ({ ...prev, gender: gender.id }))}
+                            >
+                              {gender.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Blood Type <span style={styles.required}>*</span></span>
+                        <select
+                          name="bloodType"
+                          value={editFormData.bloodType || ''}
+                          onChange={handleEditInputChange}
+                          style={styles.editSelect}
+                        >
+                          <option value="">Select Blood Type</option>
+                          {BLOOD_TYPE_OPTIONS.map((type) => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Mobile Number <span style={styles.required}>*</span></span>
+                        <input
+                          type="tel"
+                          name="mobileNumber"
+                          value={editFormData.mobileNumber || ''}
+                          onChange={handleEditInputChange}
+                          style={styles.editInput}
+                        />
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Email <span style={styles.required}>*</span></span>
+                        <input
+                          type="email"
+                          name="email"
+                          value={editFormData.email || ''}
+                          onChange={handleEditInputChange}
+                          style={styles.editInput}
+                        />
+                      </div>
+                      <div style={{...styles.modalItem, gridColumn: '1 / -1'}}>
+                        <span style={styles.modalLabel}>Home Address <span style={styles.required}>*</span></span>
+                        <textarea
+                          name="homeAddress"
+                          value={editFormData.homeAddress || ''}
+                          onChange={handleEditInputChange}
+                          style={styles.editTextarea}
+                          rows="2"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Name</span>
+                        <span style={styles.modalValue}>{selectedRegistration.userName || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Birthdate</span>
+                        <span style={styles.modalValue}>{formatDateWithTime(selectedRegistration.birthdate) || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Age</span>
+                        <span style={styles.modalValue}>{selectedRegistration.age || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Gender</span>
+                        <span style={styles.modalValue}>{getGenderLabel(selectedRegistration.gender)}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Blood Type</span>
+                        <span style={styles.modalValue}>{selectedRegistration.bloodType || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Mobile Number</span>
+                        <span style={styles.modalValue}>{selectedRegistration.mobileNumber || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Email</span>
+                        <span style={styles.modalValue}>{selectedRegistration.email || 'N/A'}</span>
+                      </div>
+                      <div style={{...styles.modalItem, gridColumn: '1 / -1'}}>
+                        <span style={styles.modalLabel}>Home Address</span>
+                        <span style={styles.modalValue}>{selectedRegistration.homeAddress || 'N/A'}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Emergency Contact */}
               <div style={styles.modalSection}>
-                <h3 style={styles.modalSectionTitle}>🚨 Emergency Contact</h3>
+                <div style={styles.sectionHeader}>
+                  <h3 style={styles.modalSectionTitle}>🚨 Emergency Contact</h3>
+                </div>
                 <div style={styles.modalGrid}>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Contact Person</span>
-                    <span style={styles.modalValue}>{selectedRegistration.emergencyContact || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Contact Number</span>
-                    <span style={styles.modalValue}>{selectedRegistration.emergencyNumber || 'N/A'}</span>
-                  </div>
+                  {isEditing ? (
+                    <>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Contact Person <span style={styles.required}>*</span></span>
+                        <input
+                          type="text"
+                          name="emergencyContact"
+                          value={editFormData.emergencyContact || ''}
+                          onChange={handleEditInputChange}
+                          style={styles.editInput}
+                        />
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Contact Number <span style={styles.required}>*</span></span>
+                        <input
+                          type="tel"
+                          name="emergencyNumber"
+                          value={editFormData.emergencyNumber || ''}
+                          onChange={handleEditInputChange}
+                          style={styles.editInput}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Contact Person</span>
+                        <span style={styles.modalValue}>{selectedRegistration.emergencyContact || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Contact Number</span>
+                        <span style={styles.modalValue}>{selectedRegistration.emergencyNumber || 'N/A'}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Event Details */}
               <div style={styles.modalSection}>
                 <h3 style={styles.modalSectionTitle}>🏁 Event Details</h3>
                 <div style={styles.modalGrid}>
@@ -609,7 +1230,6 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Payment Details */}
               <div style={styles.modalSection}>
                 <h3 style={styles.modalSectionTitle}>💳 Payment Details</h3>
                 <div style={styles.modalGrid}>
@@ -634,7 +1254,6 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Waiver Section with Toggle */}
               <div style={styles.waiverToggleSection}>
                 <div style={styles.waiverToggleHeader} onClick={toggleWaiver}>
                   <h3 style={styles.waiverToggleTitle}>
@@ -657,19 +1276,15 @@ const Dashboard = () => {
                       <p style={styles.waiverDisplayText}>
                         I hereby certify that I am physically fit and in good health to participate in the Lilo-Wawa Half Marathon. I understand that running is a strenuous physical activity that involves inherent risks, including injury, illness, dehydration, accidents, and other unforeseen circumstances.
                       </p>
-
                       <p style={styles.waiverDisplayText}>
                         I acknowledge that food and refreshments may be provided during the event and accept full responsibility for any allergies, dietary restrictions, or adverse reactions resulting from their consumption.
                       </p>
-
                       <p style={styles.waiverDisplayText}>
                         I further understand that the organizers will have standby medical personnel and first-aid assistance available during the event. However, I acknowledge that such assistance does not eliminate all risks associated with participation, and I voluntarily assume full responsibility for my health and safety.
                       </p>
-
                       <p style={styles.waiverDisplayText}>
                         In consideration of my participation, I hereby release and hold harmless the organizers, sponsors, partners, volunteers, medical personnel, and the Municipality of Liloan from any liability, claims, damages, injuries, losses, or expenses arising from or related to my participation in the event, except in cases of gross negligence or willful misconduct.
                       </p>
-
                       <p style={styles.waiverDisplayText}>
                         By registering for the Lilo-Wawa Half Marathon, I confirm that I have read, understood, and voluntarily agreed to this waiver and release of liability.
                       </p>
@@ -697,19 +1312,21 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Modal Actions */}
             <div style={styles.modalActions}>
-              <button style={styles.downloadImageBtn} onClick={generateImage}>
-                <span style={styles.imageIcon}>🖼️</span>
-                Download Image
-              </button>
-              <button style={styles.downloadWaiverBtn} onClick={generateWaiverImage}>
-                <span style={styles.imageIcon}>🖼️</span>
-                Download Waiver
-              </button>
-              <button style={styles.closeModalBtn} onClick={closeViewModal}>
-                Close
-              </button>
+              {isEditing ? (
+                <>
+                  <button style={styles.saveEditBtn} onClick={handleSaveEdit}>
+                    💾 Save Changes
+                  </button>
+                  <button style={styles.cancelEditBtn} onClick={handleCancelEdit}>
+                    ❌ Cancel
+                  </button>
+                </>
+              ) : (
+                <button style={styles.closeModalBtn} onClick={closeViewModal}>
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -719,7 +1336,7 @@ const Dashboard = () => {
 };
 
 // ============================================================
-// STYLES - Professional 3D Design with Liloan Love the Life Theme
+// STYLES
 // ============================================================
 
 const colors = {
@@ -1028,7 +1645,8 @@ const styles = {
   cardActions: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '8px',
+    flexWrap: 'wrap',
   },
   viewBtn: {
     padding: '6px 16px',
@@ -1046,7 +1664,58 @@ const styles = {
     whiteSpace: 'nowrap',
     boxShadow: '0 4px 12px rgba(10, 112, 186, 0.25)',
   },
+  downloadPaymentBtn: {
+    padding: '6px 16px',
+    background: `linear-gradient(135deg, ${colors.darkBlue}, ${colors.blue})`,
+    color: 'white',
+    border: 'none',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    whiteSpace: 'nowrap',
+    boxShadow: '0 4px 12px rgba(10, 112, 186, 0.25)',
+  },
+  downloadImageBtn: {
+    padding: '6px 16px',
+    background: `linear-gradient(135deg, ${colors.teal}, ${colors.blue})`,
+    color: 'white',
+    border: 'none',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    whiteSpace: 'nowrap',
+    boxShadow: '0 4px 12px rgba(0, 168, 171, 0.25)',
+  },
+  downloadWaiverBtn: {
+    padding: '6px 16px',
+    background: `linear-gradient(135deg, ${colors.yellow}, #f5a623)`,
+    color: colors.darkBlue,
+    border: 'none',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    whiteSpace: 'nowrap',
+    boxShadow: '0 4px 12px rgba(237, 219, 11, 0.25)',
+  },
   viewIcon: {
+    fontSize: '0.8rem',
+  },
+  imageIcon: {
     fontSize: '0.8rem',
   },
   progressBar: {
@@ -1055,6 +1724,7 @@ const styles = {
     background: 'rgba(0, 168, 171, 0.10)',
     borderRadius: '4px',
     overflow: 'hidden',
+    minWidth: '40px',
   },
   progressFill: {
     height: '100%',
@@ -1083,9 +1753,6 @@ const styles = {
     fontSize: '1.1rem',
     fontWeight: 500,
   },
-  // ============================================================
-  // VIEW MODAL STYLES
-  // ============================================================
   modalOverlay: {
     position: 'fixed',
     top: 0,
@@ -1142,6 +1809,15 @@ const styles = {
     color: '#4a5568',
     margin: '4px 0 0 0',
   },
+  saveMessage: {
+    padding: '10px 16px',
+    borderRadius: '8px',
+    marginTop: '8px',
+    fontWeight: 600,
+    textAlign: 'center',
+    border: '1px solid',
+    fontSize: '0.9rem',
+  },
   modalBody: {
     marginBottom: '24px',
   },
@@ -1152,11 +1828,29 @@ const styles = {
     borderRadius: '16px',
     border: '1px solid rgba(0, 168, 171, 0.08)',
   },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '12px',
+  },
   modalSectionTitle: {
     fontSize: '1rem',
     fontWeight: 700,
     color: colors.darkBlue,
-    margin: '0 0 12px 0',
+    margin: 0,
+  },
+  editBtnSmall: {
+    padding: '4px 16px',
+    background: `linear-gradient(135deg, ${colors.blue}, ${colors.darkBlue})`,
+    color: 'white',
+    border: 'none',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 12px rgba(10, 112, 186, 0.25)',
   },
   modalGrid: {
     display: 'grid',
@@ -1181,13 +1875,64 @@ const styles = {
     color: '#2d3748',
     wordBreak: 'break-word',
   },
+  required: {
+    color: '#e53e3e',
+  },
+  editInput: {
+    padding: '8px 12px',
+    border: '2px solid rgba(0, 168, 171, 0.20)',
+    borderRadius: '8px',
+    fontSize: '0.9rem',
+    transition: 'all 0.3s ease',
+    background: 'white',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+  editSelect: {
+    padding: '8px 12px',
+    border: '2px solid rgba(0, 168, 171, 0.20)',
+    borderRadius: '8px',
+    fontSize: '0.9rem',
+    transition: 'all 0.3s ease',
+    background: 'white',
+    width: '100%',
+    boxSizing: 'border-box',
+    appearance: 'none',
+    cursor: 'pointer',
+  },
+  editTextarea: {
+    padding: '8px 12px',
+    border: '2px solid rgba(0, 168, 171, 0.20)',
+    borderRadius: '8px',
+    fontSize: '0.9rem',
+    transition: 'all 0.3s ease',
+    background: 'white',
+    width: '100%',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+    resize: 'vertical',
+  },
+  genderEditGroup: {
+    display: 'flex',
+    gap: '8px',
+  },
+  genderEditBtn: {
+    padding: '6px 14px',
+    border: '2px solid',
+    borderRadius: '8px',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    flex: 1,
+  },
   modalActions: {
     display: 'flex',
     gap: '12px',
     marginTop: '8px',
     flexWrap: 'wrap',
   },
-  downloadImageBtn: {
+  downloadImageBtnModal: {
     flex: 1,
     minWidth: '140px',
     padding: '14px 20px',
@@ -1205,7 +1950,7 @@ const styles = {
     gap: '8px',
     boxShadow: '0 6px 20px rgba(10, 112, 186, 0.30)',
   },
-  downloadWaiverBtn: {
+  downloadWaiverBtnModal: {
     flex: 1,
     minWidth: '140px',
     padding: '14px 20px',
@@ -1223,10 +1968,38 @@ const styles = {
     gap: '8px',
     boxShadow: '0 6px 20px rgba(237, 219, 11, 0.30)',
   },
-  imageIcon: {
-    fontSize: '1.2rem',
-  },
   closeModalBtn: {
+    flex: 1,
+    minWidth: '100px',
+    padding: '14px 20px',
+    background: 'rgba(237, 242, 247, 0.9)',
+    color: '#4a5568',
+    border: '2px solid #e2e8f0',
+    borderRadius: '40px',
+    fontWeight: 600,
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
+  saveEditBtn: {
+    flex: 1,
+    minWidth: '140px',
+    padding: '14px 20px',
+    background: 'linear-gradient(135deg, #68B42D, #48a71a)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '40px',
+    fontWeight: 700,
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    boxShadow: '0 6px 20px rgba(104, 180, 45, 0.30)',
+  },
+  cancelEditBtn: {
     flex: 0.5,
     minWidth: '100px',
     padding: '14px 20px',
@@ -1239,9 +2012,6 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.3s ease',
   },
-  // ============================================================
-  // WAIVER TOGGLE STYLES
-  // ============================================================
   waiverToggleSection: {
     marginTop: '20px',
     padding: '16px',
@@ -1325,9 +2095,6 @@ const styles = {
     flex: 1,
     minWidth: '150px',
   },
-  // ============================================================
-  // CAPTURE STYLES - For image generation with perfect fit
-  // ============================================================
   captureContent: {
     position: 'absolute',
     left: '-9999px',
@@ -1412,9 +2179,6 @@ const styles = {
     color: '#a0aec0',
     fontWeight: 400,
   },
-  // ============================================================
-  // WAIVER CAPTURE STYLES - For image download with perfect fit
-  // ============================================================
   waiverCaptureContent: {
     position: 'absolute',
     left: '-9999px',
@@ -1498,12 +2262,9 @@ const styles = {
   },
 };
 
-// ============================================================
-// CSS KEYFRAMES (injected)
-// ============================================================
-
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
+// CSS KEYFRAMES
+const styleSheet2 = document.createElement('style');
+styleSheet2.textContent = `
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
@@ -1547,25 +2308,9 @@ styleSheet.textContent = `
     }
   }
 
-  /* Hover Effects */
   .view-btn:hover {
     transform: scale(1.05) !important;
     box-shadow: 0 6px 20px rgba(10, 112, 186, 0.4) !important;
-  }
-
-  .download-image-btn:hover {
-    transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 10px 30px rgba(10, 112, 186, 0.45) !important;
-  }
-
-  .download-waiver-btn:hover {
-    transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 10px 30px rgba(237, 219, 11, 0.45) !important;
-  }
-
-  .close-modal-btn:hover {
-    background: #e2e8f0 !important;
-    transform: translateY(-2px) !important;
   }
 
   .modal-close:hover {
@@ -1580,7 +2325,33 @@ styleSheet.textContent = `
     margin: -4px -8px !important;
   }
 
-  /* Responsive */
+  .edit-btn-small:hover {
+    transform: scale(1.05) !important;
+    box-shadow: 0 6px 20px rgba(10, 112, 186, 0.35) !important;
+  }
+
+  .save-edit-btn:hover {
+    transform: translateY(-2px) scale(1.02) !important;
+    box-shadow: 0 10px 30px rgba(104, 180, 45, 0.45) !important;
+  }
+
+  .cancel-edit-btn:hover {
+    background: #e2e8f0 !important;
+    transform: translateY(-2px) !important;
+  }
+
+  .gender-edit-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(10, 112, 186, 0.12) !important;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #0A70BA !important;
+    box-shadow: 0 0 0 3px rgba(10, 112, 186, 0.12) !important;
+    background: white !important;
+  }
+
   @media (max-width: 768px) {
     .modal-content {
       padding: 24px 16px !important;
@@ -1595,8 +2366,6 @@ styleSheet.textContent = `
       flex-direction: column !important;
     }
 
-    .download-image-btn,
-    .download-waiver-btn,
     .close-modal-btn {
       width: 100% !important;
       padding: 12px !important;
@@ -1656,6 +2425,16 @@ styleSheet.textContent = `
     .waiver-display-field-value {
       width: 100% !important;
     }
+
+    .gender-edit-group {
+      flex-direction: column !important;
+    }
+
+    .section-header {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 8px !important;
+    }
   }
 
   @media (max-width: 480px) {
@@ -1698,6 +2477,6 @@ styleSheet.textContent = `
     }
   }
 `;
-document.head.appendChild(styleSheet);
+document.head.appendChild(styleSheet2);
 
 export default Dashboard;

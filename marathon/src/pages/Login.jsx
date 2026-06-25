@@ -168,7 +168,7 @@ const Login = () => {
         </form>
 
         <p style={styles.linkText}>
-          Don't have an account? <Link to="/register" style={styles.link}>Register</Link>
+          Don't have an account? <Link to="/register" style={styles.link}>Sign Up</Link>
         </p>
       </div>
     </div>

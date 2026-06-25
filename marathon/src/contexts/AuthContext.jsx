@@ -7,7 +7,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore'; // Removed unused 'query' and 'where'
+import { doc, setDoc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore'; // <-- ADDED updateDoc
 
 const AuthContext = createContext();
 
@@ -135,6 +135,48 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // ✅ UPDATE REGISTRATION - New function for editing
+  async function updateRegistration(uid, registrationId, updateData) {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        throw new Error('User document not found');
+      }
+
+      const userData = userSnap.data();
+      const registrations = userData.registrations || [];
+      
+      // Find the registration to update
+      const registrationIndex = registrations.findIndex(reg => reg.id === registrationId);
+      
+      if (registrationIndex === -1) {
+        throw new Error('Registration not found');
+      }
+
+      // Update the registration data (preserve existing data, merge with updateData)
+      registrations[registrationIndex] = {
+        ...registrations[registrationIndex],
+        ...updateData,
+        updatedAt: new Date().toISOString() // Track when it was updated
+      };
+
+      // Save back to Firestore
+      await setDoc(userRef, {
+        ...userData,
+        registrations: registrations
+      }, { merge: true });
+
+      // Return the updated registration
+      return registrations[registrationIndex];
+      
+    } catch (error) {
+      console.error('Error updating registration:', error);
+      throw error;
+    }
+  }
+
   // Get user registrations
   async function getUserRegistrations(uid) {
     try {
@@ -250,7 +292,8 @@ export function AuthProvider({ children }) {
     saveRegistration,
     getUserRegistrations,
     getAllUsers,
-    getAllRegistrations
+    getAllRegistrations,
+    updateRegistration // ✅ EXPORTED - Available for Dashboard
   };
 
   return (

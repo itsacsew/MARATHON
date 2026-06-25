@@ -804,7 +804,7 @@ const Dashboard = () => {
                         title="Download Full Registration Form"
                       >
                         <span style={styles.imageIcon}>🖼️</span>
-                        Download Image
+                        Download Registration No.
                       </button>
                       <button 
                         style={styles.downloadWaiverBtn}

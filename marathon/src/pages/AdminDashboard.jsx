@@ -18,12 +18,15 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('registrations');
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfRegistration, setPdfRegistration] = useState(null);
-  const [sortBy, setSortBy] = useState('category');
+  const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptImageUrl, setReceiptImageUrl] = useState('');
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateNames, setDuplicateNames] = useState([]);
+  const [hasDuplicates, setHasDuplicates] = useState(false); // NEW: Track if duplicates exist
   const navigate = useNavigate();
 
   const fetchAllData = useCallback(async () => {
@@ -33,12 +36,40 @@ const AdminDashboard = () => {
       setUsers(allUsers);
       const allRegistrations = await getAllRegistrations();
       setRegistrations(allRegistrations);
+      
+      // NEW: Check for duplicates after fetching data
+      checkForDuplicates(allRegistrations);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   }, [getAllUsers, getAllRegistrations]);
+
+  // NEW: Function to check if duplicates exist
+  const checkForDuplicates = (registrationsList) => {
+    const nameMap = {};
+    let hasDuplicate = false;
+
+    registrationsList.forEach(reg => {
+      const name = reg.userName?.trim()?.toLowerCase();
+      if (name) {
+        if (!nameMap[name]) {
+          nameMap[name] = [];
+        }
+        nameMap[name].push(reg);
+      }
+    });
+
+    // Check if any name appears more than once
+    Object.keys(nameMap).forEach(name => {
+      if (nameMap[name].length > 1) {
+        hasDuplicate = true;
+      }
+    });
+
+    setHasDuplicates(hasDuplicate);
+  };
 
   useEffect(() => {
     if (userData?.isAdmin) {
@@ -85,11 +116,49 @@ const AdminDashboard = () => {
     setReceiptImageUrl('');
   };
 
+  // Clone/Duplicate Detection Function - UPDATED to check if duplicates exist first
+  const handleDetectClones = () => {
+    // Check if there are duplicates before proceeding
+    if (!hasDuplicates) {
+      return; // Do nothing if no duplicates
+    }
+
+    const nameMap = {};
+    const duplicates = [];
+
+    registrations.forEach(reg => {
+      const name = reg.userName?.trim()?.toLowerCase();
+      if (name) {
+        if (!nameMap[name]) {
+          nameMap[name] = [];
+        }
+        nameMap[name].push(reg);
+      }
+    });
+
+    // Find names that appear more than once
+    Object.keys(nameMap).forEach(name => {
+      if (nameMap[name].length > 1) {
+        duplicates.push({
+          name: nameMap[name][0].userName, // Original case
+          count: nameMap[name].length,
+          registrations: nameMap[name]
+        });
+      }
+    });
+
+    if (duplicates.length === 0) {
+      return;
+    }
+
+    setDuplicateNames(duplicates);
+    setShowDuplicateModal(true);
+  };
+
   // Helper function to get date string in local timezone (YYYY-MM-DD)
   const getLocalDateString = (dateValue) => {
     if (!dateValue) return null;
     const date = new Date(dateValue);
-    // Use local timezone to get the correct date
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -251,6 +320,20 @@ const AdminDashboard = () => {
     return 99;
   };
 
+  // Sort registrations by date (oldest to newest)
+  const sortRegistrationsByDate = (registrationsList) => {
+    return [...registrationsList].sort((a, b) => {
+      const dateA = a.registeredAt ? new Date(a.registeredAt).getTime() : 0;
+      const dateB = b.registeredAt ? new Date(b.registeredAt).getTime() : 0;
+      
+      if (sortOrder === 'asc') {
+        return dateA - dateB;
+      } else {
+        return dateB - dateA;
+      }
+    });
+  };
+
   // Sort registrations by category then by distance
   const sortRegistrationsByCategoryAndDistance = (registrationsList) => {
     const categoryOrder = {
@@ -289,7 +372,6 @@ const AdminDashboard = () => {
         }
       }
     });
-    // Sort dates in descending order (newest first)
     return Array.from(dates).sort((a, b) => b.localeCompare(a));
   };
 
@@ -306,7 +388,6 @@ const AdminDashboard = () => {
       const matchesCategory = filterCategory === 'all' || reg.categoryId === filterCategory;
       const matchesGender = filterGender === 'all' || reg.gender === filterGender;
       
-      // Date filter - using local date string for accurate comparison
       let matchesDate = true;
       if (filterDate !== 'all') {
         if (reg.registeredAt) {
@@ -320,7 +401,11 @@ const AdminDashboard = () => {
       return matchesSearch && matchesCategory && matchesGender && matchesDate;
     });
 
-    return sortRegistrationsByCategoryAndDistance(filtered);
+    if (sortBy === 'date') {
+      return sortRegistrationsByDate(filtered);
+    } else {
+      return sortRegistrationsByCategoryAndDistance(filtered);
+    }
   };
 
   // Sort users
@@ -423,6 +508,24 @@ const AdminDashboard = () => {
     setCurrentPage(1);
   }, [searchTerm, filterCategory, filterGender, filterDate]);
 
+  // Toggle sort between date and category
+  const toggleSort = () => {
+    if (sortBy === 'date') {
+      setSortBy('category');
+      setSortOrder('asc');
+    } else {
+      setSortBy('date');
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  // Toggle sort order (asc/desc)
+  const toggleSortOrder = () => {
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -500,6 +603,15 @@ const AdminDashboard = () => {
             </span>
           </div>
           <div className="admin-header-right">
+            {/* UPDATED: Detect Clones button - disabled when no duplicates */}
+            <button 
+              onClick={handleDetectClones} 
+              className={`clone-btn ${!hasDuplicates ? 'disabled' : ''}`}
+              disabled={!hasDuplicates}
+              title={!hasDuplicates ? 'No duplicate names found' : 'Click to view duplicate registrations'}
+            >
+              🔍 Detect Clones {hasDuplicates && `(${duplicateNames.length})`}
+            </button>
             <button onClick={fetchAllData} className="refresh-btn">
               🔄 Refresh
             </button>
@@ -605,6 +717,7 @@ const AdminDashboard = () => {
 
             {activeTab === 'registrations' && (
               <>
+
                 <div className="filter-box">
                   <select
                     value={filterCategory}
@@ -637,7 +750,6 @@ const AdminDashboard = () => {
                   </select>
                 </div>
 
-                {/* Date filter dropdown with accurate local date */}
                 <div className="filter-box">
                   <select
                     value={filterDate}
@@ -646,7 +758,6 @@ const AdminDashboard = () => {
                   >
                     <option value="all">📅 ALL DATES</option>
                     {uniqueDates.map(date => {
-                      // Format date for display
                       const [year, month, day] = date.split('-');
                       const displayDate = new Date(year, month - 1, day).toLocaleDateString('en-PH', {
                         year: 'numeric',
@@ -685,7 +796,14 @@ const AdminDashboard = () => {
                       <th>Reference #</th>
                       <th>Payment</th>
                       <th>Status</th>
-                      <th>Date</th>
+                      <th className="sortable-header">
+                        Date 
+                        {sortBy === 'date' && (
+                          <span className="sort-indicator">
+                            {sortOrder === 'asc' ? ' ⬆️' : ' ⬇️'}
+                          </span>
+                        )}
+                      </th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -1051,6 +1169,64 @@ const AdminDashboard = () => {
                 Download PDF
               </button>
               <button className="done-btn" onClick={handleClosePdfModal}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate/Clone Detection Modal */}
+      {showDuplicateModal && (
+        <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
+          <div className="modal-content duplicate-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowDuplicateModal(false)}>×</button>
+            <h2>⚠️ Duplicate/Clone Registrations Detected</h2>
+            <p className="duplicate-subtitle">
+              Found <strong>{duplicateNames.length}</strong> name(s) with multiple registrations:
+            </p>
+            
+            <div className="duplicate-list">
+              {duplicateNames.map((dup, idx) => (
+                <div key={idx} className="duplicate-group">
+                  <div className="duplicate-header">
+                    <span className="duplicate-name">👤 {dup.name}</span>
+                    <span className="duplicate-count">📝 {dup.count} registrations</span>
+                  </div>
+                  <div className="duplicate-registrations">
+                    {dup.registrations.map((reg, regIdx) => (
+                      <div key={regIdx} className="duplicate-reg-item">
+                        <span className="reg-index">#{regIdx + 1}</span>
+                        <span className="reg-detail">📧 {reg.userEmail || 'N/A'}</span>
+                        <span className="reg-detail">🏷️ {reg.category || 'N/A'}</span>
+                        <span className="reg-detail">📏 {reg.distance || 'N/A'}</span>
+                        <span className="reg-detail">💰 ₱{reg.fee?.toLocaleString() || '0'}</span>
+                        <span className="reg-detail">📅 {formatDisplayDate(reg.registeredAt)}</span>
+                        <span className="reg-detail ref-number">🔢 {reg.referenceNumber || 'N/A'}</span>
+                        <button 
+                          className="view-reg-btn"
+                          onClick={() => {
+                            setShowDuplicateModal(false);
+                            handleViewDetails(reg);
+                          }}
+                          title="View Registration Details"
+                        >
+                          👁️ View
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="duplicate-divider"></div>
+                </div>
+              ))}
+            </div>
+
+            <div className="duplicate-summary">
+              <p>Total duplicate registrations: <strong>{duplicateNames.reduce((acc, dup) => acc + dup.count, 0)}</strong></p>
+            </div>
+
+            <div className="modal-actions">
+              <button className="modal-close-btn" onClick={() => setShowDuplicateModal(false)}>
                 Close
               </button>
             </div>

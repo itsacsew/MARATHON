@@ -18,15 +18,53 @@ const Dashboard = () => {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptImageUrl, setReceiptImageUrl] = useState('');
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
-  const [receiptFile, setReceiptFile] = useState(null);
-  const [receiptPreview, setReceiptPreview] = useState(null);
+  const [receiptFiles, setReceiptFiles] = useState([]);
+  const [receiptPreviews, setReceiptPreviews] = useState([]);
+  const [compressedReceiptData, setCompressedReceiptData] = useState([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [compressedReceiptData, setCompressedReceiptData] = useState(null);
-  const [showFullReceipt, setShowFullReceipt] = useState(false);
   const fileInputRef = useRef(null);
   const captureRef = useRef(null);
   const waiverCaptureRef = useRef(null);
   const navigate = useNavigate();
+
+  // ✅ Event data mapping with fees
+  const eventData = {
+    'OPEN CATEGORY': {
+      events: ['FUN RUN', 'ROAD RACE', 'HALF MARATHON'],
+      distances: { 
+        'FUN RUN': '6KM', 
+        'ROAD RACE': '10KM', 
+        'HALF MARATHON': '21KM' 
+      },
+      fees: {
+        'FUN RUN': 500,
+        'ROAD RACE': 800,
+        'HALF MARATHON': 1300
+      }
+    },
+    '40 UPPERS / MASTER CATEGORY': {
+      events: ['ROAD RACE', 'HALF MARATHON'],
+      distances: { 
+        'ROAD RACE': '10KM', 
+        'HALF MARATHON': '21KM' 
+      },
+      fees: {
+        'ROAD RACE': 800,
+        'HALF MARATHON': 1300
+      }
+    },
+    'LILOAN ONLY CATEGORY': {
+      events: ['FUN RUN'],
+      distances: { 
+        'FUN RUN': '6KM' 
+      },
+      fees: {
+        'FUN RUN': 500
+      }
+    }
+  };
+
+  const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
   // ✅ Function to fetch registrations
   const fetchRegistrations = async () => {
@@ -38,7 +76,6 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Handle registration success - refresh the list
   const handleRegistrationSuccess = () => {
     fetchRegistrations();
   };
@@ -56,7 +93,7 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Function to compress image (same as PaymentModal)
+  // ✅ Function to compress image
   const compressImage = (dataUrl, maxSizeKB = 150) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -95,7 +132,7 @@ const Dashboard = () => {
   };
 
   // ============================================================
-  // FUNCTION 1: DOWNLOAD PAYMENT CARD (Simple card)
+  // FUNCTION 1: DOWNLOAD PAYMENT CARD
   // ============================================================
   const generatePaymentCardImage = async (registration) => {
     const tempDiv = document.createElement('div');
@@ -192,7 +229,7 @@ const Dashboard = () => {
   };
 
   // ============================================================
-  // FUNCTION 2: DOWNLOAD FULL REGISTRATION FORM (With all details)
+  // FUNCTION 2: DOWNLOAD FULL REGISTRATION FORM
   // ============================================================
   const generateFullRegistrationImage = async (registration) => {
     const tempDiv = document.createElement('div');
@@ -206,7 +243,6 @@ const Dashboard = () => {
     tempDiv.style.padding = '0';
     tempDiv.style.boxSizing = 'border-box';
     
-    // Format date helper
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
       const date = new Date(dateString);
@@ -501,11 +537,15 @@ const Dashboard = () => {
       emergencyContact: selectedRegistration?.emergencyContact || '',
       emergencyNumber: selectedRegistration?.emergencyNumber || '',
       referenceNumber: selectedRegistration?.referenceNumber || '',
+      category: selectedRegistration?.category || '',
+      eventName: selectedRegistration?.eventName || '',
+      distance: selectedRegistration?.distance || '',
+      shirtSize: selectedRegistration?.shirtSize || '',
+      fee: selectedRegistration?.fee || '',
     });
-    // Reset receipt upload state
-    setReceiptFile(null);
-    setReceiptPreview(null);
-    setCompressedReceiptData(null);
+    setReceiptFiles([]);
+    setReceiptPreviews([]);
+    setCompressedReceiptData([]);
     setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
@@ -515,9 +555,9 @@ const Dashboard = () => {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditFormData({});
-    setReceiptFile(null);
-    setReceiptPreview(null);
-    setCompressedReceiptData(null);
+    setReceiptFiles([]);
+    setReceiptPreviews([]);
+    setCompressedReceiptData([]);
     setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
@@ -543,6 +583,38 @@ const Dashboard = () => {
     }));
   };
 
+  // ✅ HANDLE CATEGORY CHANGE - Auto update event options, reset event/distance/fee
+  const handleCategoryChange = (e) => {
+    const category = e.target.value;
+    const events = eventData[category]?.events || [];
+    const firstEvent = events.length > 0 ? events[0] : '';
+    const distance = firstEvent ? eventData[category]?.distances[firstEvent] || '' : '';
+    const fee = firstEvent ? eventData[category]?.fees[firstEvent] || '' : '';
+    
+    setEditFormData(prev => ({
+      ...prev,
+      category: category,
+      eventName: firstEvent,
+      distance: distance,
+      fee: fee
+    }));
+  };
+
+  // ✅ HANDLE EVENT CHANGE - Auto update distance and fee
+  const handleEventChange = (e) => {
+    const eventName = e.target.value;
+    const category = editFormData.category;
+    const distance = eventData[category]?.distances[eventName] || '';
+    const fee = eventData[category]?.fees[eventName] || '';
+    
+    setEditFormData(prev => ({
+      ...prev,
+      eventName: eventName,
+      distance: distance,
+      fee: fee
+    }));
+  };
+
   // ✅ Calculate age helper
   const calculateAge = (birthdate) => {
     if (!birthdate) return '';
@@ -558,53 +630,111 @@ const Dashboard = () => {
 
   // ✅ Handle receipt file selection - compress immediately
   const handleReceiptFileSelect = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setSaveError('Please select an image file (JPEG, PNG, etc.)');
-        setTimeout(() => setSaveError(''), 3000);
-        return;
-      }
-      
-      if (file.size > 5 * 1024 * 1024) {
-        setSaveError('File size must be less than 5MB');
-        setTimeout(() => setSaveError(''), 3000);
-        return;
-      }
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      setSaveError('Please select image files (JPEG, PNG, etc.)');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
 
-      setSaveError('');
-      setReceiptFile(file);
-      setUploadSuccess(false);
-      setCompressedReceiptData(null);
+    for (const file of imageFiles) {
+      if (file.size > 5 * 1024 * 1024) {
+        setSaveError('File size must be less than 5MB each');
+        setTimeout(() => setSaveError(''), 3000);
+        return;
+      }
+    }
+
+    setSaveError('');
+    setUploadSuccess(false);
+
+    const newReceiptFiles = [...receiptFiles];
+    const newReceiptPreviews = [...receiptPreviews];
+    const newCompressedData = [...compressedReceiptData];
+
+    for (const file of imageFiles) {
+      newReceiptFiles.push(file);
       
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          // ✅ Compress the image immediately
-          const compressedImage = await compressImage(reader.result, 150);
-          setReceiptPreview(compressedImage);
-          // ✅ Store compressed data for Firestore
-          setCompressedReceiptData(compressedImage);
-          // ✅ Auto-set upload success since image is already compressed and ready
-          setUploadSuccess(true);
-          setSaveSuccess('✅ Receipt ready to save! Click "Save Changes" to update.');
-          setTimeout(() => setSaveSuccess(''), 3000);
-        } catch (error) {
-          console.error('Error compressing image:', error);
-          setReceiptPreview(reader.result);
-          setCompressedReceiptData(reader.result);
-          setUploadSuccess(true);
-        }
-      };
-      reader.readAsDataURL(file);
+      const dataUrl = await new Promise((resolve) => {
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+
+      try {
+        const compressedImage = await compressImage(dataUrl, 150);
+        newReceiptPreviews.push(compressedImage);
+        newCompressedData.push(compressedImage);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        newReceiptPreviews.push(dataUrl);
+        newCompressedData.push(dataUrl);
+      }
+    }
+
+    setReceiptFiles(newReceiptFiles);
+    setReceiptPreviews(newReceiptPreviews);
+    setCompressedReceiptData(newCompressedData);
+    
+    if (newCompressedData.length > 0) {
+      setUploadSuccess(true);
+      setSaveSuccess(`✅ ${newCompressedData.length} new receipt(s) ready to save! Click "Save Changes" to update.`);
+      setTimeout(() => setSaveSuccess(''), 3000);
     }
   };
 
-  // ✅ HANDLE SAVE EDIT - Update Firebase Firestore with compressed receipt data
+  // ✅ Remove a NEW receipt
+  const handleRemoveNewReceipt = (index) => {
+    const newFiles = [...receiptFiles];
+    const newPreviews = [...receiptPreviews];
+    const newCompressed = [...compressedReceiptData];
+    
+    newFiles.splice(index, 1);
+    newPreviews.splice(index, 1);
+    newCompressed.splice(index, 1);
+    
+    setReceiptFiles(newFiles);
+    setReceiptPreviews(newPreviews);
+    setCompressedReceiptData(newCompressed);
+    
+    if (newCompressed.length === 0) {
+      setUploadSuccess(false);
+    }
+  };
+
+  // ✅ Check if save button should be enabled
+  const isSaveEnabled = () => {
+    const eventChanged = 
+      editFormData.category !== selectedRegistration?.category ||
+      editFormData.eventName !== selectedRegistration?.eventName ||
+      editFormData.distance !== selectedRegistration?.distance ||
+      editFormData.shirtSize !== selectedRegistration?.shirtSize ||
+      editFormData.fee !== selectedRegistration?.fee;
+    
+    const otherFieldsChanged =
+      editFormData.userName !== selectedRegistration?.userName ||
+      editFormData.birthdate !== selectedRegistration?.birthdate ||
+      editFormData.gender !== selectedRegistration?.gender ||
+      editFormData.bloodType !== selectedRegistration?.bloodType ||
+      editFormData.mobileNumber !== selectedRegistration?.mobileNumber ||
+      editFormData.email !== selectedRegistration?.email ||
+      editFormData.homeAddress !== selectedRegistration?.homeAddress ||
+      editFormData.emergencyContact !== selectedRegistration?.emergencyContact ||
+      editFormData.emergencyNumber !== selectedRegistration?.emergencyNumber ||
+      editFormData.referenceNumber !== selectedRegistration?.referenceNumber;
+    
+    const hasNewReceipts = compressedReceiptData.length > 0;
+    
+    return (eventChanged && hasNewReceipts) || otherFieldsChanged || hasNewReceipts;
+  };
+
+  // ✅ HANDLE SAVE EDIT - UPDATED to handle both receipt formats
   const handleSaveEdit = async () => {
     if (!selectedRegistration || !currentUser) return;
 
-    // Validate required fields
     if (!editFormData.userName?.trim()) {
       setSaveError('❌ Please enter your full name');
       setTimeout(() => setSaveError(''), 3000);
@@ -655,6 +785,21 @@ const Dashboard = () => {
       setTimeout(() => setSaveError(''), 3000);
       return;
     }
+    if (!editFormData.category) {
+      setSaveError('❌ Please select a category');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.eventName) {
+      setSaveError('❌ Please select an event');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+    if (!editFormData.shirtSize) {
+      setSaveError('❌ Please select a shirt size');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
 
     setUploadingReceipt(true);
 
@@ -671,21 +816,57 @@ const Dashboard = () => {
         emergencyContact: editFormData.emergencyContact,
         emergencyNumber: editFormData.emergencyNumber,
         referenceNumber: editFormData.referenceNumber.trim(),
+        category: editFormData.category,
+        eventName: editFormData.eventName,
+        distance: editFormData.distance,
+        shirtSize: editFormData.shirtSize,
+        fee: editFormData.fee,
         updatedAt: new Date().toISOString()
       };
 
-      // ✅ If there's compressed receipt data, save it directly to Firestore
-      if (compressedReceiptData) {
-        updateData.receiptPreview = compressedReceiptData;
-        updateData.hasReceipt = true;
-        updateData.receiptFileName = receiptFile?.name || 'receipt.jpg';
-        updateData.receiptUploadedAt = new Date().toISOString();
+      // ✅ Get existing receipts (support both formats)
+      let existingReceipts = [];
+      
+      // Check for receiptPreviews (array from Dashboard edit)
+      if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
+        existingReceipts = selectedRegistration.receiptPreviews;
+      } 
+      // Check for receiptPreview (string from SuccessModal)
+      else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
+        existingReceipts = [selectedRegistration.receiptPreview];
       }
 
-      // ✅ Update using the AuthContext updateRegistration function
+      // ✅ If there are new compressed receipt data, APPEND them to existing
+      if (compressedReceiptData.length > 0) {
+        const allReceipts = [...existingReceipts, ...compressedReceiptData];
+        
+        updateData.receiptPreviews = allReceipts;
+        updateData.hasReceipts = true;
+        
+        // Remove old receiptPreview if exists (convert to array format)
+        if (selectedRegistration.receiptPreview) {
+          updateData.receiptPreview = null;
+        }
+        
+        // Get existing file names or create new array
+        const existingFileNames = selectedRegistration.receiptFileNames || [];
+        const newFileNames = receiptFiles.map(f => f.name);
+        updateData.receiptFileNames = [...existingFileNames, ...newFileNames];
+        updateData.receiptUploadedAt = new Date().toISOString();
+      } else {
+        // If there are existing receipts but no new ones, make sure they're preserved
+        if (existingReceipts.length > 0) {
+          updateData.receiptPreviews = existingReceipts;
+          updateData.hasReceipts = true;
+          // Remove old receiptPreview if exists
+          if (selectedRegistration.receiptPreview) {
+            updateData.receiptPreview = null;
+          }
+        }
+      }
+
       await updateRegistration(currentUser.uid, selectedRegistration.id, updateData);
 
-      // ✅ Update selected registration with new data including receipt
       const updatedRegistration = {
         ...selectedRegistration,
         ...updateData
@@ -693,7 +874,6 @@ const Dashboard = () => {
       
       setSelectedRegistration(updatedRegistration);
 
-      // ✅ Update registrations list
       setRegistrations(prev => prev.map(reg => 
         reg.id === selectedRegistration.id 
           ? updatedRegistration
@@ -701,9 +881,9 @@ const Dashboard = () => {
       ));
 
       setIsEditing(false);
-      setReceiptFile(null);
-      setReceiptPreview(null);
-      setCompressedReceiptData(null);
+      setReceiptFiles([]);
+      setReceiptPreviews([]);
+      setCompressedReceiptData([]);
       setUploadSuccess(false);
       setSaveSuccess('✅ Registration updated successfully!');
       setTimeout(() => setSaveSuccess(''), 3000);
@@ -723,7 +903,6 @@ const Dashboard = () => {
     setShowReceiptModal(true);
   };
 
-  // ✅ Handle close receipt modal
   const handleCloseReceiptModal = () => {
     setShowReceiptModal(false);
     setReceiptImageUrl('');
@@ -737,6 +916,8 @@ const Dashboard = () => {
   const BLOOD_TYPE_OPTIONS = [
     'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'
   ];
+
+  const CATEGORY_OPTIONS = ['OPEN CATEGORY', '40 UPPERS / MASTER CATEGORY', 'LILOAN ONLY CATEGORY'];
 
   if (!currentUser) {
     navigate('/login');
@@ -804,9 +985,9 @@ const Dashboard = () => {
     setIsWaiverOpen(false);
     setIsEditing(false);
     setEditFormData({});
-    setReceiptFile(null);
-    setReceiptPreview(null);
-    setCompressedReceiptData(null);
+    setReceiptFiles([]);
+    setReceiptPreviews([]);
+    setCompressedReceiptData([]);
     setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
@@ -818,9 +999,9 @@ const Dashboard = () => {
     setIsWaiverOpen(false);
     setIsEditing(false);
     setEditFormData({});
-    setReceiptFile(null);
-    setReceiptPreview(null);
-    setCompressedReceiptData(null);
+    setReceiptFiles([]);
+    setReceiptPreviews([]);
+    setCompressedReceiptData([]);
     setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
@@ -893,8 +1074,8 @@ const Dashboard = () => {
                     <div style={styles.cardBadge}>
                       <span style={{
                         ...styles.categoryBadge,
-                        background: reg.categoryId === 'open' ? '#0A70BA' :
-                                   reg.categoryId === 'masters' ? '#2A499B' : '#68B42D'
+                        background: reg.category === 'OPEN CATEGORY' ? '#0A70BA' :
+                                   reg.category === '40 UPPERS / MASTER CATEGORY' ? '#2A499B' : '#68B42D'
                       }}>
                         {reg.category || 'N/A'}
                       </span>
@@ -1357,33 +1538,129 @@ const Dashboard = () => {
                 </div>
               </div>
 
+              {/* ✅ Event Details with Dropdowns and Arrows */}
               <div style={styles.modalSection}>
-                <h3 style={styles.modalSectionTitle}>🏁 Event Details</h3>
+                <div style={styles.sectionHeader}>
+                  <h3 style={styles.modalSectionTitle}>🏁 Event Details</h3>
+                  {!isEditing && (
+                    <button style={styles.editBtnSmall} onClick={handleEditClick}>
+                      ✏️ Edit
+                    </button>
+                  )}
+                </div>
                 <div style={styles.modalGrid}>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Event</span>
-                    <span style={styles.modalValue}>{selectedRegistration.eventName || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Category</span>
-                    <span style={styles.modalValue}>{selectedRegistration.category || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Distance</span>
-                    <span style={styles.modalValue}>{selectedRegistration.distance || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Shirt Size</span>
-                    <span style={{...styles.modalValue, color: '#0A70BA', fontWeight: 'bold'}}>{selectedRegistration.shirtSize || 'N/A'}</span>
-                  </div>
-                  <div style={styles.modalItem}>
-                    <span style={styles.modalLabel}>Fee</span>
-                    <span style={{...styles.modalValue, color: '#2A499B', fontWeight: 'bold'}}>₱{selectedRegistration.fee?.toLocaleString() || '0'}.00</span>
-                  </div>
+                  {isEditing ? (
+                    <>
+                      {/* Category Dropdown with Arrow */}
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Category <span style={styles.required}>*</span></span>
+                        <div style={styles.selectWrapper}>
+                          <select
+                            name="category"
+                            value={editFormData.category || ''}
+                            onChange={handleCategoryChange}
+                            style={styles.editSelect}
+                          >
+                            <option value="">Select Category</option>
+                            {CATEGORY_OPTIONS.map((cat) => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                          <span style={styles.selectArrow}>▼</span>
+                        </div>
+                      </div>
+
+                      {/* Event Dropdown with Arrow */}
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Event <span style={styles.required}>*</span></span>
+                        <div style={styles.selectWrapper}>
+                          <select
+                            name="eventName"
+                            value={editFormData.eventName || ''}
+                            onChange={handleEventChange}
+                            style={styles.editSelect}
+                            disabled={!editFormData.category}
+                          >
+                            <option value="">Select Event</option>
+                            {editFormData.category && eventData[editFormData.category]?.events.map((evt) => (
+                              <option key={evt} value={evt}>{evt}</option>
+                            ))}
+                          </select>
+                          <span style={styles.selectArrow}>▼</span>
+                        </div>
+                      </div>
+
+                      {/* Distance - Auto-filled, read-only */}
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Distance</span>
+                        <input
+                          type="text"
+                          name="distance"
+                          value={editFormData.distance || ''}
+                          style={{...styles.editInput, background: '#f7fafc'}}
+                          disabled
+                        />
+                      </div>
+
+                      {/* Shirt Size Dropdown with Arrow */}
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Shirt Size <span style={styles.required}>*</span></span>
+                        <div style={styles.selectWrapper}>
+                          <select
+                            name="shirtSize"
+                            value={editFormData.shirtSize || ''}
+                            onChange={handleEditInputChange}
+                            style={styles.editSelect}
+                          >
+                            <option value="">Select Shirt Size</option>
+                            {SHIRT_SIZES.map((size) => (
+                              <option key={size} value={size}>{size}</option>
+                            ))}
+                          </select>
+                          <span style={styles.selectArrow}>▼</span>
+                        </div>
+                      </div>
+
+                      {/* Fee - Auto-filled, read-only */}
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Fee</span>
+                        <input
+                          type="text"
+                          value={editFormData.fee ? `₱${editFormData.fee.toLocaleString()}.00` : '₱0.00'}
+                          style={{...styles.editInput, background: '#f7fafc', fontWeight: 'bold', color: '#2A499B'}}
+                          disabled
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    // View mode - display event details
+                    <>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Event</span>
+                        <span style={styles.modalValue}>{selectedRegistration.eventName || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Category</span>
+                        <span style={styles.modalValue}>{selectedRegistration.category || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Distance</span>
+                        <span style={styles.modalValue}>{selectedRegistration.distance || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Shirt Size</span>
+                        <span style={{...styles.modalValue, color: '#0A70BA', fontWeight: 'bold'}}>{selectedRegistration.shirtSize || 'N/A'}</span>
+                      </div>
+                      <div style={styles.modalItem}>
+                        <span style={styles.modalLabel}>Fee</span>
+                        <span style={{...styles.modalValue, color: '#2A499B', fontWeight: 'bold'}}>₱{selectedRegistration.fee?.toLocaleString() || '0'}.00</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* ✅ PAYMENT DETAILS SECTION WITH RECEIPT UPLOAD */}
+              {/* PAYMENT DETAILS SECTION WITH MULTIPLE RECEIPT UPLOAD - UPDATED */}
               <div style={styles.modalSection}>
                 <h3 style={styles.modalSectionTitle}>💳 Payment Details</h3>
                 <div style={styles.modalGrid}>
@@ -1418,112 +1695,158 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* ✅ RECEIPT SECTION - Simplified (No Upload Button) */}
+                {/* RECEIPT SECTION - UPDATED to support both formats */}
                 <div style={styles.receiptSection}>
                   <div style={styles.receiptDivider}>
-                    <span>RECEIPT</span>
+                    <span>RECEIPTS</span>
                   </div>
                   
                   <div style={styles.receiptContainer}>
                     {isEditing ? (
                       <>
-                        {/* Show current receipt if exists and no new file selected */}
-                        {selectedRegistration.receiptPreview && !receiptPreview && !compressedReceiptData && (
-                          <div style={styles.receiptPreviewContainer}>
-                            <img 
-                              src={selectedRegistration.receiptPreview} 
-                              alt="Current Receipt" 
-                              style={styles.receiptPreviewImage}
-                              onClick={() => handleReceiptClick(selectedRegistration.receiptPreview)}
-                            />
-                            <div style={styles.receiptClickHint}>🔍 Click to enlarge</div>
-                          </div>
-                        )}
-                        
-                        {/* Show new receipt preview if selected (already compressed) */}
-                        {receiptPreview && (
-                          <div style={styles.receiptPreviewContainer}>
-                            <img 
-                              src={receiptPreview} 
-                              alt="New Receipt Preview" 
-                              style={styles.receiptPreviewImage}
-                            />
-                            <div style={styles.receiptClickHint}>
-                              ✅ Ready to save!
+                        {/* ✅ Show existing receipts - supports both formats */}
+                        {(() => {
+                          // Get all existing receipts (supports both receiptPreview and receiptPreviews)
+                          let existingReceipts = [];
+                          
+                          // Check if there are receiptPreviews (array from Dashboard edit)
+                          if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
+                            existingReceipts = selectedRegistration.receiptPreviews;
+                          } 
+                          // Check if there's a receiptPreview (string from SuccessModal)
+                          else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
+                            existingReceipts = [selectedRegistration.receiptPreview];
+                          }
+                          
+                          return existingReceipts.length > 0 ? (
+                            <div style={styles.receiptGrid}>
+                              {existingReceipts.map((img, idx) => (
+                                <div 
+                                  key={`existing-${idx}`} 
+                                  style={styles.receiptPreviewContainer}
+                                  onClick={() => handleReceiptClick(img)}
+                                >
+                                  <img 
+                                    src={img} 
+                                    alt={`Receipt ${idx + 1}`} 
+                                    style={styles.receiptPreviewImage}
+                                  />
+                                  <div style={styles.receiptClickHint}>🔍 Click to enlarge</div>
+                                </div>
+                              ))}
                             </div>
+                          ) : null;
+                        })()}
+                        
+                        {/* Show new receipt previews */}
+                        {receiptPreviews.length > 0 && (
+                          <div style={styles.receiptGrid}>
+                            {receiptPreviews.map((preview, idx) => (
+                              <div key={`new-${idx}`} style={styles.receiptPreviewContainer}>
+                                <img 
+                                  src={preview} 
+                                  alt={`New Receipt ${idx + 1}`} 
+                                  style={styles.receiptPreviewImage}
+                                />
+                                <button 
+                                  style={styles.receiptRemoveBtn}
+                                  onClick={() => handleRemoveNewReceipt(idx)}
+                                >
+                                  ✕
+                                </button>
+                                <div style={styles.receiptClickHint}>📄 New</div>
+                              </div>
+                            ))}
                           </div>
                         )}
                         
-                        {/* File Input - Select image */}
                         <div style={styles.fileInputWrapper}>
                           <input
                             type="file"
                             ref={fileInputRef}
                             onChange={handleReceiptFileSelect}
                             accept="image/*"
+                            multiple
                             style={styles.fileInputHidden}
                             id="receipt-upload-dashboard"
                           />
                           <label htmlFor="receipt-upload-dashboard" style={styles.fileInputLabel}>
                             <span style={styles.fileIcon}>📁</span>
                             <span style={styles.fileText}>
-                              {receiptFile ? receiptFile.name : 'Choose File'}
+                              {receiptFiles.length > 0 
+                                ? `${receiptFiles.length} new file(s) selected` 
+                                : 'Choose New File'}
                             </span>
                             <span style={styles.fileBrowseBtn}>Browse</span>
                           </label>
                         </div>
 
-                        {/* Show file name and status */}
-                        {receiptFile && (
+                        {receiptFiles.length > 0 && (
                           <div style={styles.uploadSuccessMsg}>
                             <span style={styles.successIcon}>✅</span>
-                            <span>{receiptFile.name} - Ready to save</span>
+                            <span>{receiptFiles.length} new file(s) ready to save</span>
                           </div>
                         )}
 
-                        {/* Remove selected file button */}
-                        {receiptFile && (
-                          <button 
-                            style={styles.removeFileBtn}
-                            onClick={() => {
-                              setReceiptFile(null);
-                              setReceiptPreview(null);
-                              setCompressedReceiptData(null);
-                              setUploadSuccess(false);
-                              if (fileInputRef.current) {
-                                fileInputRef.current.value = '';
-                              }
-                            }}
-                          >
-                            ✕ Remove
-                          </button>
-                        )}
-
                         <p style={styles.supportedFormats}>
-                          Supported formats: JPEG, PNG, GIF (Max 5MB) - Auto compressed to ~150KB
+                          Supported formats: JPEG, PNG, GIF (Max 5MB each) - Auto compressed to ~150KB
                         </p>
 
-                        {!selectedRegistration.receiptPreview && !receiptFile && (
-                          <div style={styles.noReceiptText}>No receipt uploaded</div>
+                        {(() => {
+                          // Check if there are any existing receipts
+                          let hasExisting = false;
+                          if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
+                            hasExisting = true;
+                          } else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
+                            hasExisting = true;
+                          }
+                          
+                          return (!hasExisting && receiptFiles.length === 0) ? (
+                            <div style={styles.noReceiptText}>No receipts uploaded</div>
+                          ) : null;
+                        })()}
+
+                        {!isSaveEnabled() && (
+                          <div style={styles.saveDisabledMsg}>
+                            ⚠️ No changes detected or Upload new payment if Event Details section has updates.
+                          </div>
                         )}
                       </>
                     ) : (
-                      // View mode - show receipt if exists
-                      selectedRegistration.receiptPreview ? (
-                        <div 
-                          style={styles.receiptPreviewContainer}
-                          onClick={() => handleReceiptClick(selectedRegistration.receiptPreview)}
-                        >
-                          <img 
-                            src={selectedRegistration.receiptPreview} 
-                            alt="Receipt" 
-                            style={styles.receiptPreviewImage}
-                          />
-                          <div style={styles.receiptClickHint}>🔍 Click to enlarge</div>
-                        </div>
-                      ) : (
-                        <span style={styles.modalValue}>No receipt uploaded</span>
-                      )
+                      // View mode - show receipts if exists (supports both formats)
+                      (() => {
+                        let existingReceipts = [];
+                        
+                        // Check for receiptPreviews (array from Dashboard edit)
+                        if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
+                          existingReceipts = selectedRegistration.receiptPreviews;
+                        } 
+                        // Check for receiptPreview (string from SuccessModal)
+                        else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
+                          existingReceipts = [selectedRegistration.receiptPreview];
+                        }
+                        
+                        return existingReceipts.length > 0 ? (
+                          <div style={styles.receiptGrid}>
+                            {existingReceipts.map((img, idx) => (
+                              <div 
+                                key={`view-${idx}`} 
+                                style={styles.receiptPreviewContainer}
+                                onClick={() => handleReceiptClick(img)}
+                              >
+                                <img 
+                                  src={img} 
+                                  alt={`Receipt ${idx + 1}`} 
+                                  style={styles.receiptPreviewImage}
+                                />
+                                <div style={styles.receiptClickHint}>🔍 Click to enlarge</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={styles.modalValue}>No receipts uploaded</span>
+                        );
+                      })()
                     )}
                   </div>
                 </div>
@@ -1591,9 +1914,13 @@ const Dashboard = () => {
               {isEditing ? (
                 <>
                   <button 
-                    style={styles.saveEditBtn} 
+                    style={{
+                      ...styles.saveEditBtn,
+                      opacity: isSaveEnabled() ? 1 : 0.5,
+                      cursor: isSaveEnabled() ? 'pointer' : 'not-allowed'
+                    }} 
                     onClick={handleSaveEdit}
-                    disabled={uploadingReceipt}
+                    disabled={!isSaveEnabled() || uploadingReceipt}
                   >
                     {uploadingReceipt ? '⏳ Saving...' : '💾 Save Changes'}
                   </button>
@@ -1611,7 +1938,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* ✅ RECEIPT MODAL */}
+      {/* RECEIPT MODAL */}
       {showReceiptModal && receiptImageUrl && (
         <div style={styles.modalOverlay} onClick={handleCloseReceiptModal}>
           <div style={styles.receiptModalContent} onClick={(e) => e.stopPropagation()}>
@@ -1635,7 +1962,7 @@ const Dashboard = () => {
 };
 
 // ============================================================
-// STYLES (SAME AS PREVIOUS)
+// STYLES - UPDATED with arrow styles
 // ============================================================
 
 const colors = {
@@ -2017,20 +2344,6 @@ const styles = {
   imageIcon: {
     fontSize: '0.8rem',
   },
-  progressBar: {
-    flex: 1,
-    height: '4px',
-    background: 'rgba(0, 168, 171, 0.10)',
-    borderRadius: '4px',
-    overflow: 'hidden',
-    minWidth: '40px',
-  },
-  progressFill: {
-    height: '100%',
-    background: `linear-gradient(90deg, ${colors.blue}, ${colors.teal})`,
-    borderRadius: '4px',
-    transition: 'width 1s ease',
-  },
   loadingContainer: {
     minHeight: '100vh',
     display: 'flex',
@@ -2177,6 +2490,20 @@ const styles = {
   required: {
     color: '#e53e3e',
   },
+  selectWrapper: {
+    position: 'relative',
+    width: '100%',
+  },
+  selectArrow: {
+    position: 'absolute',
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: '#4a5568',
+    fontSize: '0.8rem',
+    pointerEvents: 'none',
+    transition: 'all 0.3s ease',
+  },
   editInput: {
     padding: '8px 12px',
     border: '2px solid rgba(0, 168, 171, 0.20)',
@@ -2188,7 +2515,7 @@ const styles = {
     boxSizing: 'border-box',
   },
   editSelect: {
-    padding: '8px 12px',
+    padding: '8px 36px 8px 12px',
     border: '2px solid rgba(0, 168, 171, 0.20)',
     borderRadius: '8px',
     fontSize: '0.9rem',
@@ -2197,7 +2524,22 @@ const styles = {
     width: '100%',
     boxSizing: 'border-box',
     appearance: 'none',
+    WebkitAppearance: 'none',
+    MozAppearance: 'none',
     cursor: 'pointer',
+    '&:disabled': {
+      background: '#f7fafc',
+      cursor: 'not-allowed',
+      opacity: 0.7,
+    },
+    '&:hover': {
+      borderColor: colors.blue,
+    },
+    '&:focus': {
+      outline: 'none',
+      borderColor: colors.blue,
+      boxShadow: '0 0 0 3px rgba(10, 112, 186, 0.12)',
+    },
   },
   editTextarea: {
     padding: '8px 12px',
@@ -2262,7 +2604,7 @@ const styles = {
     gap: '8px',
     boxShadow: '0 6px 20px rgba(104, 180, 45, 0.30)',
     '&:disabled': {
-      opacity: 0.6,
+      opacity: 0.5,
       cursor: 'not-allowed',
     },
   },
@@ -2418,9 +2760,6 @@ const styles = {
     borderBottom: '1px solid #f0f0f0',
     alignItems: 'center',
   },
-  captureRowLast: {
-    borderBottom: 'none',
-  },
   captureLabel: {
     flex: '0 0 140px',
     fontWeight: 600,
@@ -2527,9 +2866,12 @@ const styles = {
     fontSize: '12px',
     color: '#a0aec0',
   },
-  // ✅ Receipt Section Styles
   receiptSection: {
     marginTop: '12px',
+    fontWeight: 600,
+    color: '#4a5568',
+    fontSize: '20px',
+    minWidth: '150px',
   },
   receiptDivider: {
     display: 'flex',
@@ -2538,7 +2880,7 @@ const styles = {
     '&::before, &::after': {
       content: '""',
       flex: 1,
-      borderTop: '2px solid #e2e8f0',
+      borderTop: '2px solid #a0aec0',
     },
     '& span': {
       padding: '0 12px',
@@ -2557,14 +2899,20 @@ const styles = {
     gap: '12px',
     alignItems: 'center',
   },
+  receiptGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+    gap: '12px',
+    width: '100%',
+  },
   receiptPreviewContainer: {
     cursor: 'pointer',
     border: '2px solid #e2e8f0',
     borderRadius: '12px',
     padding: '8px',
     transition: 'all 0.3s ease',
-    maxWidth: '200px',
     background: '#f7fafc',
+    position: 'relative',
     '&:hover': {
       borderColor: colors.blue,
       boxShadow: '0 4px 16px rgba(10, 112, 186, 0.15)',
@@ -2573,16 +2921,37 @@ const styles = {
   receiptPreviewImage: {
     width: '100%',
     height: 'auto',
-    maxHeight: '120px',
+    maxHeight: '100px',
     objectFit: 'contain',
     borderRadius: '8px',
   },
   receiptClickHint: {
     textAlign: 'center',
-    fontSize: '0.7rem',
+    fontSize: '0.6rem',
     color: '#718096',
     marginTop: '4px',
     fontWeight: 500,
+  },
+  receiptRemoveBtn: {
+    position: 'absolute',
+    top: '-8px',
+    right: '-8px',
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    background: '#fc8181',
+    color: 'white',
+    border: 'none',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'scale(1.1)',
+      background: '#f56565',
+    },
   },
   fileInputWrapper: {
     width: '100%',
@@ -2653,21 +3022,6 @@ const styles = {
   successIcon: {
     fontSize: '1.1rem',
   },
-  removeFileBtn: {
-    padding: '6px 14px',
-    background: 'rgba(254, 215, 215, 0.9)',
-    border: '1px solid #fc8181',
-    borderRadius: '20px',
-    fontSize: '0.75rem',
-    color: '#c53030',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    fontWeight: 600,
-    '&:hover': {
-      background: '#fc8181',
-      color: 'white',
-    },
-  },
   supportedFormats: {
     fontSize: '0.7rem',
     color: '#a0aec0',
@@ -2681,7 +3035,17 @@ const styles = {
     textAlign: 'center',
     padding: '8px 0',
   },
-  // Receipt Modal styles
+  saveDisabledMsg: {
+    fontSize: '0.8rem',
+    color: '#e53e3e',
+    textAlign: 'center',
+    padding: '8px 12px',
+    background: 'rgba(254, 215, 215, 0.6)',
+    borderRadius: '8px',
+    border: '1px solid #fc8181',
+    fontWeight: 500,
+    width: '100%',
+  },
   receiptModalContent: {
     background: 'white',
     borderRadius: '28px',
@@ -2768,6 +3132,16 @@ styleSheet2.textContent = `
     }
   }
 
+  @keyframes floatGlow {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-20px, 20px) scale(1.1); }
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  }
+
   .spinner-small {
     display: inline-block;
     width: 16px;
@@ -2800,7 +3174,7 @@ styleSheet2.textContent = `
     box-shadow: 0 6px 20px rgba(10, 112, 186, 0.35) !important;
   }
 
-  .save-edit-btn:hover {
+  .save-edit-btn:hover:not(:disabled) {
     transform: translateY(-2px) scale(1.02) !important;
     box-shadow: 0 10px 30px rgba(104, 180, 45, 0.45) !important;
   }
@@ -2826,6 +3200,10 @@ styleSheet2.textContent = `
     border-color: #0A70BA !important;
     box-shadow: 0 4px 16px rgba(10, 112, 186, 0.15) !important;
     transform: scale(1.02) !important;
+  }
+
+  .select-wrapper:hover .select-arrow {
+    color: #0A70BA !important;
   }
 
   @media (max-width: 768px) {
@@ -2932,6 +3310,10 @@ styleSheet2.textContent = `
     .file-text {
       font-size: 0.75rem !important;
     }
+
+    .receipt-grid {
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
+    }
   }
 
   @media (max-width: 480px) {
@@ -2979,6 +3361,10 @@ styleSheet2.textContent = `
 
     .receipt-full-container {
       padding: 8px 0 !important;
+    }
+
+    .receipt-grid {
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)) !important;
     }
   }
 `;

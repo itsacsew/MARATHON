@@ -3506,9 +3506,9 @@ button:disabled {
   background: #f1f3f5;
   padding: 2px 10px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 15px;
   color: #495057;
-  font-weight: 500;
+  font-weight: 600;
 }
 /* ============================================================
    ADMIN TOP BAR - PERFECT ALIGNMENT
@@ -4089,4 +4089,182 @@ button:disabled {
   margin-top: 4px;
   font-size: 0.8rem;
   color: #6b7280;
+}
+/* Clone/Detect Button */
+.clone-btn {
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
+}
+
+.clone-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+}
+
+.clone-btn:active {
+  transform: translateY(0);
+}
+
+/* Duplicate Modal */
+.duplicate-modal {
+  max-width: 800px !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
+.duplicate-subtitle {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.duplicate-list {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.duplicate-group {
+  margin-bottom: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 15px;
+  border-left: 4px solid #f5576c;
+}
+
+.duplicate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.duplicate-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+}
+
+.duplicate-count {
+  background: #f5576c;
+  color: white;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.duplicate-registrations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.duplicate-reg-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 10px 14px;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s ease;
+}
+
+.duplicate-reg-item:hover {
+  background: #f1f3f5;
+  border-color: #dee2e6;
+}
+
+.reg-index {
+  font-weight: 700;
+  color: #868e96;
+  font-size: 13px;
+  min-width: 30px;
+}
+
+.reg-detail {
+  font-size: 14px;
+  color: #495057;
+}
+
+.reg-detail.ref-number {
+  font-family: monospace;
+  background: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.view-reg-btn {
+  padding: 4px 12px;
+  background: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.view-reg-btn:hover {
+  background: #3a5bd9;
+  transform: scale(1.05);
+}
+
+.duplicate-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #dee2e6, transparent);
+  margin: 12px 0 0 0;
+}
+
+.duplicate-summary {
+  margin-top: 15px;
+  padding: 15px;
+  background: #e7f5ff;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.duplicate-summary strong {
+  color: #f5576c;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .duplicate-reg-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .view-reg-btn {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+  }
+  
+  .duplicate-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .duplicate-modal {
+    margin: 10px;
+    padding: 15px !important;
+    max-height: 95vh !important;
+  }
 }

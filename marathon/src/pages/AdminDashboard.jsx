@@ -12,6 +12,7 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
+  const [filterDate, setFilterDate] = useState('all');
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState('registrations');
@@ -82,6 +83,28 @@ const AdminDashboard = () => {
   const handleCloseReceiptModal = () => {
     setShowReceiptModal(false);
     setReceiptImageUrl('');
+  };
+
+  // Helper function to get date string in local timezone (YYYY-MM-DD)
+  const getLocalDateString = (dateValue) => {
+    if (!dateValue) return null;
+    const date = new Date(dateValue);
+    // Use local timezone to get the correct date
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Format date for display
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric'
+    });
   };
 
   // Download Excel File
@@ -255,6 +278,21 @@ const AdminDashboard = () => {
     });
   };
 
+  // Get unique dates for filter dropdown
+  const getUniqueDates = () => {
+    const dates = new Set();
+    registrations.forEach(reg => {
+      if (reg.registeredAt) {
+        const dateStr = getLocalDateString(reg.registeredAt);
+        if (dateStr) {
+          dates.add(dateStr);
+        }
+      }
+    });
+    // Sort dates in descending order (newest first)
+    return Array.from(dates).sort((a, b) => b.localeCompare(a));
+  };
+
   // Filter and sort registrations
   const getFilteredAndSortedRegistrations = () => {
     const filtered = registrations.filter(reg => {
@@ -268,7 +306,18 @@ const AdminDashboard = () => {
       const matchesCategory = filterCategory === 'all' || reg.categoryId === filterCategory;
       const matchesGender = filterGender === 'all' || reg.gender === filterGender;
       
-      return matchesSearch && matchesCategory && matchesGender;
+      // Date filter - using local date string for accurate comparison
+      let matchesDate = true;
+      if (filterDate !== 'all') {
+        if (reg.registeredAt) {
+          const regDateStr = getLocalDateString(reg.registeredAt);
+          matchesDate = regDateStr === filterDate;
+        } else {
+          matchesDate = false;
+        }
+      }
+      
+      return matchesSearch && matchesCategory && matchesGender && matchesDate;
     });
 
     return sortRegistrationsByCategoryAndDistance(filtered);
@@ -334,6 +383,7 @@ const AdminDashboard = () => {
   // Get unique categories for filter
   const categories = [...new Set(registrations.map(reg => reg.categoryId))];
   const genders = [...new Set(registrations.map(reg => reg.gender))];
+  const uniqueDates = getUniqueDates();
 
   // Format date
   const formatDate = (dateString) => {
@@ -371,7 +421,7 @@ const AdminDashboard = () => {
   // Reset to first page when search/filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterCategory, filterGender]);
+  }, [searchTerm, filterCategory, filterGender, filterDate]);
 
   if (loading) {
     return (
@@ -586,6 +636,31 @@ const AdminDashboard = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* Date filter dropdown with accurate local date */}
+                <div className="filter-box">
+                  <select
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">📅 ALL DATES</option>
+                    {uniqueDates.map(date => {
+                      // Format date for display
+                      const [year, month, day] = date.split('-');
+                      const displayDate = new Date(year, month - 1, day).toLocaleDateString('en-PH', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      });
+                      return (
+                        <option key={date} value={date}>
+                          {displayDate}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
               </>
             )}
           </div>
@@ -662,7 +737,7 @@ const AdminDashboard = () => {
                               </span>
                             </td>
                             <td className="date-cell">
-                              {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : 'N/A'}
+                              {reg.registeredAt ? formatDisplayDate(reg.registeredAt) : 'N/A'}
                             </td>
                             <td>
                               <div className="action-buttons">

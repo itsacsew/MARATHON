@@ -14,13 +14,60 @@ import logoImg from '../assets/logo_resized_200x200.png';
 import sealImg from '../assets/9520a761-89a7-44cc-a36f-d9adcc6aa175.jpg';
 import sealImg1 from '../assets/206thFA Theme copy.png';
 
+// Import guide images (0.jpg to 10.jpg)
+import guide0 from '../assets/guide/0.jpg';
+import guide1 from '../assets/guide/1.jpg';
+import guide2 from '../assets/guide/2.jpg';
+import guide3 from '../assets/guide/3.jpg';
+import guide4 from '../assets/guide/4.jpg';
+import guide5 from '../assets/guide/5.jpg';
+import guide6 from '../assets/guide/6.jpg';
+import guide7 from '../assets/guide/7.jpg';
+import guide8 from '../assets/guide/8.jpg';
+import guide9 from '../assets/guide/9.jpg';
+import guide10 from '../assets/guide/10.jpg';
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   const { login, getUserData } = useAuth();
   const navigate = useNavigate();
+
+  // Guide steps data
+  const guideSteps = [
+    { image: guide0, title: "LILO-WAWA HALF MARATHON Registration Guide", description: "Welcome to the registration guide! Follow the steps below to register successfully." },
+    { image: guide1, title: "Step 1: Registration Guide", description: "LILO-WAWA HALF MARATHON Registration Guide" },
+    { image: guide2, title: "Step 2: Login Page", description: "1. Click the registration link using Google Chrome. 2. On the login page, click Register." },
+    { image: guide3, title: "Step 3: Create Account", description: "Fill out all the required information to create your account, then click Register." },
+    { image: guide4, title: "Step 4: Personal Information", description: "Complete all the required personal information. Then click Proceed to Category Selection." },
+    { image: guide5, title: "Step 5: Select Category", description: "Select your preferred race category." },
+    { image: guide6, title: "Step 6: Race Preferences", description: "Choose your T-shirt size, check the box indicating 'I agree to the Liability Waiver and Agreement,' then click Proceed." },
+    { image: guide7, title: "Step 7: Payment", description: "Pay the registration fee using your preferred payment method by scanning the provided QR code. Take a screenshot of your payment confirmation or save the digital receipt." },
+    { image: guide8, title: "Step 8: Upload Proof", description: "Enter the reference number in the designated field, then click Browse to upload your proof of payment or saved receipt." },
+    { image: guide9, title: "Step 9: Submit Registration", description: "Click Submit. A registration confirmation will appear on your screen." },
+    { image: guide10, title: "Step 10: Save Registration Form", description: "Download and save your Registration Form, print it, affix your signature, and bring the signed copy with you on the day of the event." },
+  ];
+
+  const nextStep = () => {
+    if (currentStep < guideSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const closeModal = () => {
+    setShowHelpModal(false);
+    setCurrentStep(0);
+  };
 
   // Handle email/password login - NO VERIFICATION CHECK
   const handleSubmit = async (e) => {
@@ -126,11 +173,20 @@ const Login = () => {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Images at the top */}
+        {/* Images at the top with Help icon beside the right image */}
         <div style={styles.imageRow}>
           <img src={logoImg} alt="Logo" style={styles.img} />
           <img src={sealImg} alt="Seal" style={styles.img} />
-          <img src={sealImg1} alt="Seal" style={styles.img} />
+          <div style={styles.imageWithHelp}>
+            <img src={sealImg1} alt="Seal" style={styles.img} />
+            <button 
+              style={styles.helpIcon}
+              onClick={() => setShowHelpModal(true)}
+              title="Registration Guide"
+            >
+              ❓
+            </button>
+          </div>
         </div>
 
         <h2 style={styles.heading}>Login</h2>
@@ -171,6 +227,77 @@ const Login = () => {
           Don't have an account? <Link to="/register" style={styles.link}>Sign Up</Link>
         </p>
       </div>
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div style={styles.modalOverlay} onClick={closeModal}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>📋 Registration Guide</h3>
+              <button style={styles.modalClose} onClick={closeModal}>✕</button>
+            </div>
+
+            <div style={styles.modalBody}>
+              {/* Step Indicator */}
+              <div style={styles.stepIndicator}>
+                <span style={styles.stepNumber}>Step {currentStep + 1} of {guideSteps.length}</span>
+                <div style={styles.progressBar}>
+                  <div 
+                    style={{
+                      ...styles.progressFill,
+                      width: `${((currentStep + 1) / guideSteps.length) * 100}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Step Image */}
+              <div style={styles.stepImageContainer}>
+                <img 
+                  src={guideSteps[currentStep].image} 
+                  alt={guideSteps[currentStep].title}
+                  style={styles.stepImage}
+                />
+              </div>
+
+              {/* Step Title & Description */}
+              <div style={styles.stepInfo}>
+                <h4 style={styles.stepTitle}>{guideSteps[currentStep].title}</h4>
+                <p style={styles.stepDescription}>{guideSteps[currentStep].description}</p>
+              </div>
+
+              {/* Navigation Buttons */}
+              <div style={styles.modalNav}>
+                <button 
+                  onClick={prevStep} 
+                  disabled={currentStep === 0}
+                  style={{
+                    ...styles.navButton,
+                    ...(currentStep === 0 ? styles.navButtonDisabled : {})
+                  }}
+                >
+                  ← Previous
+                </button>
+                <button 
+                  onClick={nextStep} 
+                  disabled={currentStep === guideSteps.length - 1}
+                  style={{
+                    ...styles.navButton,
+                    ...(currentStep === guideSteps.length - 1 ? styles.navButtonDisabled : {})
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
+
+              {/* Close Button at Bottom */}
+              <button style={styles.modalCloseBottom} onClick={closeModal}>
+                Close Guide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -213,8 +340,16 @@ const styles = {
   imageRow: {
     display: 'flex',
     justifyContent: 'center',
+    alignItems: 'flex-start',
     gap: '20px',
     marginBottom: '20px',
+    position: 'relative',
+  },
+  imageWithHelp: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '6px',
+    position: 'relative',
   },
   img: {
     width: '70px',
@@ -225,6 +360,25 @@ const styles = {
     padding: '6px',
     boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
     border: `2px solid ${colors.yellow}`,
+  },
+  helpIcon: {
+    background: `linear-gradient(135deg, ${colors.darkBlue}, ${colors.blue})`,
+    color: 'white',
+    border: `2px solid ${colors.yellow}`,
+    borderRadius: '50%',
+    width: '32px',
+    height: '32px',
+    fontSize: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(42, 73, 155, 0.3)',
+    transition: 'all 0.2s ease',
+    padding: 0,
+    lineHeight: 1,
+    flexShrink: 0,
+    marginTop: '-6px',
   },
   heading: {
     textAlign: 'center',
@@ -288,47 +442,6 @@ const styles = {
     transition: 'all 0.2s ease',
     marginTop: '8px',
   },
-  divider: {
-    display: 'flex',
-    alignItems: 'center',
-    textAlign: 'center',
-    margin: '4px 0',
-  },
-  dividerText: {
-    padding: '0 12px',
-    color: '#a0aec0',
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    textTransform: 'uppercase',
-  },
-  googleButton: {
-    padding: '14px 20px',
-    borderRadius: '40px',
-    border: `2px solid ${colors.darkBlue}30`,
-    background: 'white',
-    color: '#4a5568',
-    fontWeight: 600,
-    fontSize: '1rem',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-  },
-  googleIcon: {
-    width: '24px',
-    height: '24px',
-    borderRadius: '50%',
-    background: `linear-gradient(135deg, #4285F4, #EA4335)`,
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 700,
-    fontSize: '14px',
-  },
   linkText: {
     textAlign: 'center',
     marginTop: '22px',
@@ -343,25 +456,156 @@ const styles = {
     paddingBottom: '2px',
     transition: 'color 0.2s',
   },
-  verifyInfo: {
-    textAlign: 'center',
-    marginTop: '12px',
-    fontSize: '0.8rem',
-    color: '#68B42D',
+
+  // Modal Styles
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backdropFilter: 'blur(8px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '6px',
-    background: 'rgba(104, 180, 45, 0.08)',
-    padding: '8px 12px',
-    borderRadius: '20px',
+    zIndex: 9999,
+    padding: '20px',
+    animation: 'fadeIn 0.3s ease',
   },
-  verifyIcon: {
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: '24px',
+    maxWidth: '600px',
+    width: '100%',
+    maxHeight: '90vh',
+    overflow: 'hidden',
+    boxShadow: `0 30px 60px rgba(42, 73, 155, 0.4), 0 0 0 3px ${colors.yellow}`,
+    animation: 'slideUp 0.3s ease',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 24px',
+    backgroundColor: colors.darkBlue,
+    color: '#fff',
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: '1.2rem',
+    fontWeight: 700,
+  },
+  modalClose: {
+    background: 'rgba(255,255,255,0.2)',
+    border: 'none',
+    color: '#fff',
+    fontSize: '1.5rem',
+    cursor: 'pointer',
+    borderRadius: '50%',
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background 0.2s',
+  },
+  modalBody: {
+    padding: '24px',
+    overflowY: 'auto',
+    maxHeight: 'calc(90vh - 80px)',
+  },
+  stepIndicator: {
+    marginBottom: '16px',
+  },
+  stepNumber: {
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    color: colors.darkBlue,
+    display: 'block',
+    marginBottom: '6px',
+  },
+  progressBar: {
+    height: '6px',
+    backgroundColor: '#e5e7eb',
+    borderRadius: '10px',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    background: `linear-gradient(90deg, ${colors.green}, ${colors.teal})`,
+    borderRadius: '10px',
+    transition: 'width 0.3s ease',
+  },
+  stepImageContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    marginBottom: '16px',
+    border: `2px solid ${colors.yellow}40`,
+  },
+  stepImage: {
+    width: '100%',
+    height: 'auto',
+    maxHeight: '350px',
+    objectFit: 'contain',
+    display: 'block',
+  },
+  stepInfo: {
+    marginBottom: '20px',
+  },
+  stepTitle: {
+    fontSize: '1.1rem',
+    fontWeight: 700,
+    color: colors.darkBlue,
+    margin: '0 0 8px 0',
+  },
+  stepDescription: {
+    fontSize: '0.95rem',
+    color: '#4a5568',
+    margin: 0,
+    lineHeight: '1.6',
+  },
+  modalNav: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '12px',
+  },
+  navButton: {
+    padding: '10px 20px',
+    borderRadius: '30px',
+    border: `2px solid ${colors.blue}`,
+    backgroundColor: '#fff',
+    color: colors.blue,
+    fontWeight: 600,
     fontSize: '0.9rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    flex: 1,
+  },
+  navButtonDisabled: {
+    opacity: 0.4,
+    cursor: 'not-allowed',
+    borderColor: '#ccc',
+    color: '#999',
+  },
+  modalCloseBottom: {
+    width: '100%',
+    marginTop: '16px',
+    padding: '12px',
+    borderRadius: '30px',
+    border: 'none',
+    background: `linear-gradient(135deg, ${colors.green}, ${colors.teal})`,
+    color: '#fff',
+    fontWeight: 700,
+    fontSize: '1rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    boxShadow: `0 4px 12px ${colors.teal}40`,
   },
 };
 
-// Add hover effects via CSS
+// Add CSS animations and hover effects
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
   input:focus {
@@ -369,10 +613,11 @@ styleSheet.textContent = `
     box-shadow: 0 0 0 3px rgba(10,112,186,0.2), inset 0 2px 6px rgba(0,0,0,0.05) !important;
     background-color: white !important;
   }
-  button:hover {
+  
+  button:hover:not(:disabled) {
     transform: scale(1.02) translateY(-2px) !important;
   }
-  button:active {
+  button:active:not(:disabled) {
     transform: scale(0.98) !important;
   }
   button:disabled {
@@ -380,20 +625,48 @@ styleSheet.textContent = `
     transform: scale(0.98);
     cursor: not-allowed;
   }
+  
   .auth-link a:hover {
     color: #2A499B !important;
     border-bottom-color: #68B42D !important;
   }
+  
   .auth-card:hover {
     transform: perspective(800px) rotateX(0deg) rotateY(0deg) translateY(-6px) !important;
     box-shadow: 0 30px 60px rgba(42,73,155,0.4), 0 0 0 2px #EDDB0B, 0 0 0 4px rgba(104,180,45,0.2) !important;
   }
+  
   .submit-btn:hover {
     box-shadow: 0 12px 28px rgba(0,168,171,0.5), 0 0 0 2px #EDDB0B !important;
   }
-  .google-btn:hover {
-    border-color: #0A70BA !important;
-    box-shadow: 0 4px 16px rgba(10,112,186,0.15) !important;
+  
+  .help-icon:hover {
+    transform: scale(1.15) !important;
+    box-shadow: 0 6px 20px rgba(42,73,155,0.5), 0 0 0 3px ${colors.yellow} !important;
+  }
+  
+  .modal-close:hover {
+    background: rgba(255,255,255,0.3) !important;
+  }
+  
+  .nav-btn:hover:not(:disabled) {
+    background: ${colors.blue} !important;
+    color: #fff !important;
+  }
+  
+  .modal-close-bottom:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 8px 20px rgba(0,168,171,0.5) !important;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slideUp {
+    from { transform: translateY(30px) scale(0.95); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
   }
 `;
 document.head.appendChild(styleSheet);

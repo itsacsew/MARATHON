@@ -15,6 +15,15 @@ const Dashboard = () => {
   const [editFormData, setEditFormData] = useState({});
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptImageUrl, setReceiptImageUrl] = useState('');
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [compressedReceiptData, setCompressedReceiptData] = useState(null);
+  const [showFullReceipt, setShowFullReceipt] = useState(false);
+  const fileInputRef = useRef(null);
   const captureRef = useRef(null);
   const waiverCaptureRef = useRef(null);
   const navigate = useNavigate();
@@ -45,6 +54,44 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Failed to logout:', error);
     }
+  };
+
+  // ✅ Function to compress image (same as PaymentModal)
+  const compressImage = (dataUrl, maxSizeKB = 150) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = dataUrl;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        const maxDimension = 800;
+        if (width > maxDimension || height > maxDimension) {
+          const ratio = Math.min(maxDimension / width, maxDimension / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        let quality = 0.7;
+        let compressed = canvas.toDataURL('image/jpeg', quality);
+        
+        while (compressed.length > maxSizeKB * 1024 && quality > 0.1) {
+          quality -= 0.1;
+          compressed = canvas.toDataURL('image/jpeg', quality);
+        }
+        
+        resolve(compressed);
+      };
+      img.onerror = () => {
+        resolve(dataUrl);
+      };
+    });
   };
 
   // ============================================================
@@ -453,7 +500,13 @@ const Dashboard = () => {
       homeAddress: selectedRegistration?.homeAddress || '',
       emergencyContact: selectedRegistration?.emergencyContact || '',
       emergencyNumber: selectedRegistration?.emergencyNumber || '',
+      referenceNumber: selectedRegistration?.referenceNumber || '',
     });
+    // Reset receipt upload state
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setCompressedReceiptData(null);
+    setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
   };
@@ -462,6 +515,10 @@ const Dashboard = () => {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditFormData({});
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setCompressedReceiptData(null);
+    setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
   };
@@ -499,7 +556,51 @@ const Dashboard = () => {
     return age;
   };
 
-  // ✅ HANDLE SAVE EDIT - Update Firebase
+  // ✅ Handle receipt file selection - compress immediately
+  const handleReceiptFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setSaveError('Please select an image file (JPEG, PNG, etc.)');
+        setTimeout(() => setSaveError(''), 3000);
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        setSaveError('File size must be less than 5MB');
+        setTimeout(() => setSaveError(''), 3000);
+        return;
+      }
+
+      setSaveError('');
+      setReceiptFile(file);
+      setUploadSuccess(false);
+      setCompressedReceiptData(null);
+      
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          // ✅ Compress the image immediately
+          const compressedImage = await compressImage(reader.result, 150);
+          setReceiptPreview(compressedImage);
+          // ✅ Store compressed data for Firestore
+          setCompressedReceiptData(compressedImage);
+          // ✅ Auto-set upload success since image is already compressed and ready
+          setUploadSuccess(true);
+          setSaveSuccess('✅ Receipt ready to save! Click "Save Changes" to update.');
+          setTimeout(() => setSaveSuccess(''), 3000);
+        } catch (error) {
+          console.error('Error compressing image:', error);
+          setReceiptPreview(reader.result);
+          setCompressedReceiptData(reader.result);
+          setUploadSuccess(true);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // ✅ HANDLE SAVE EDIT - Update Firebase Firestore with compressed receipt data
   const handleSaveEdit = async () => {
     if (!selectedRegistration || !currentUser) return;
 
@@ -549,6 +650,13 @@ const Dashboard = () => {
       setTimeout(() => setSaveError(''), 3000);
       return;
     }
+    if (!editFormData.referenceNumber?.trim()) {
+      setSaveError('❌ Please enter reference number');
+      setTimeout(() => setSaveError(''), 3000);
+      return;
+    }
+
+    setUploadingReceipt(true);
 
     try {
       const updateData = {
@@ -562,23 +670,41 @@ const Dashboard = () => {
         homeAddress: editFormData.homeAddress,
         emergencyContact: editFormData.emergencyContact,
         emergencyNumber: editFormData.emergencyNumber,
+        referenceNumber: editFormData.referenceNumber.trim(),
         updatedAt: new Date().toISOString()
       };
 
+      // ✅ If there's compressed receipt data, save it directly to Firestore
+      if (compressedReceiptData) {
+        updateData.receiptPreview = compressedReceiptData;
+        updateData.hasReceipt = true;
+        updateData.receiptFileName = receiptFile?.name || 'receipt.jpg';
+        updateData.receiptUploadedAt = new Date().toISOString();
+      }
+
+      // ✅ Update using the AuthContext updateRegistration function
       await updateRegistration(currentUser.uid, selectedRegistration.id, updateData);
 
-      setSelectedRegistration({
+      // ✅ Update selected registration with new data including receipt
+      const updatedRegistration = {
         ...selectedRegistration,
         ...updateData
-      });
+      };
+      
+      setSelectedRegistration(updatedRegistration);
 
+      // ✅ Update registrations list
       setRegistrations(prev => prev.map(reg => 
         reg.id === selectedRegistration.id 
-          ? { ...reg, ...updateData }
+          ? updatedRegistration
           : reg
       ));
 
       setIsEditing(false);
+      setReceiptFile(null);
+      setReceiptPreview(null);
+      setCompressedReceiptData(null);
+      setUploadSuccess(false);
       setSaveSuccess('✅ Registration updated successfully!');
       setTimeout(() => setSaveSuccess(''), 3000);
 
@@ -586,7 +712,21 @@ const Dashboard = () => {
       console.error('Error updating registration:', error);
       setSaveError('❌ Failed to update registration. Please try again.');
       setTimeout(() => setSaveError(''), 3000);
+    } finally {
+      setUploadingReceipt(false);
     }
+  };
+
+  // ✅ Handle receipt click - open receipt modal
+  const handleReceiptClick = (imageUrl) => {
+    setReceiptImageUrl(imageUrl);
+    setShowReceiptModal(true);
+  };
+
+  // ✅ Handle close receipt modal
+  const handleCloseReceiptModal = () => {
+    setShowReceiptModal(false);
+    setReceiptImageUrl('');
   };
 
   const GENDER_OPTIONS = [
@@ -664,6 +804,10 @@ const Dashboard = () => {
     setIsWaiverOpen(false);
     setIsEditing(false);
     setEditFormData({});
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setCompressedReceiptData(null);
+    setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
   };
@@ -674,6 +818,10 @@ const Dashboard = () => {
     setIsWaiverOpen(false);
     setIsEditing(false);
     setEditFormData({});
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setCompressedReceiptData(null);
+    setUploadSuccess(false);
     setSaveSuccess('');
     setSaveError('');
   };
@@ -842,6 +990,11 @@ const Dashboard = () => {
               {saveError && (
                 <div style={{...styles.saveMessage, background: 'rgba(254, 215, 215, 0.9)', borderColor: '#fc8181', color: '#c53030'}}>
                   {saveError}
+                </div>
+              )}
+              {uploadingReceipt && (
+                <div style={{...styles.saveMessage, background: 'rgba(10, 112, 186, 0.12)', borderColor: '#0A70BA', color: '#2A499B'}}>
+                  <span className="spinner-small"></span> Saving...
                 </div>
               )}
             </div>
@@ -1230,6 +1383,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
+              {/* ✅ PAYMENT DETAILS SECTION WITH RECEIPT UPLOAD */}
               <div style={styles.modalSection}>
                 <h3 style={styles.modalSectionTitle}>💳 Payment Details</h3>
                 <div style={styles.modalGrid}>
@@ -1239,9 +1393,20 @@ const Dashboard = () => {
                   </div>
                   <div style={styles.modalItem}>
                     <span style={styles.modalLabel}>Reference Number</span>
-                    <span style={{...styles.modalValue, color: '#0A70BA', fontFamily: 'Courier New, monospace', fontWeight: 'bold'}}>
-                      {selectedRegistration.referenceNumber || 'N/A'}
-                    </span>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="referenceNumber"
+                        value={editFormData.referenceNumber || ''}
+                        onChange={handleEditInputChange}
+                        style={styles.editInput}
+                        placeholder="Enter reference number"
+                      />
+                    ) : (
+                      <span style={{...styles.modalValue, color: '#0A70BA', fontFamily: 'Courier New, monospace', fontWeight: 'bold'}}>
+                        {selectedRegistration.referenceNumber || 'N/A'}
+                      </span>
+                    )}
                   </div>
                   <div style={styles.modalItem}>
                     <span style={styles.modalLabel}>Payment Date</span>
@@ -1250,6 +1415,116 @@ const Dashboard = () => {
                   <div style={styles.modalItem}>
                     <span style={styles.modalLabel}>Status</span>
                     <span style={{...styles.modalValue, color: '#68B42D', fontWeight: 'bold'}}>✅ Completed</span>
+                  </div>
+                </div>
+
+                {/* ✅ RECEIPT SECTION - Simplified (No Upload Button) */}
+                <div style={styles.receiptSection}>
+                  <div style={styles.receiptDivider}>
+                    <span>RECEIPT</span>
+                  </div>
+                  
+                  <div style={styles.receiptContainer}>
+                    {isEditing ? (
+                      <>
+                        {/* Show current receipt if exists and no new file selected */}
+                        {selectedRegistration.receiptPreview && !receiptPreview && !compressedReceiptData && (
+                          <div style={styles.receiptPreviewContainer}>
+                            <img 
+                              src={selectedRegistration.receiptPreview} 
+                              alt="Current Receipt" 
+                              style={styles.receiptPreviewImage}
+                              onClick={() => handleReceiptClick(selectedRegistration.receiptPreview)}
+                            />
+                            <div style={styles.receiptClickHint}>🔍 Click to enlarge</div>
+                          </div>
+                        )}
+                        
+                        {/* Show new receipt preview if selected (already compressed) */}
+                        {receiptPreview && (
+                          <div style={styles.receiptPreviewContainer}>
+                            <img 
+                              src={receiptPreview} 
+                              alt="New Receipt Preview" 
+                              style={styles.receiptPreviewImage}
+                            />
+                            <div style={styles.receiptClickHint}>
+                              ✅ Ready to save!
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* File Input - Select image */}
+                        <div style={styles.fileInputWrapper}>
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleReceiptFileSelect}
+                            accept="image/*"
+                            style={styles.fileInputHidden}
+                            id="receipt-upload-dashboard"
+                          />
+                          <label htmlFor="receipt-upload-dashboard" style={styles.fileInputLabel}>
+                            <span style={styles.fileIcon}>📁</span>
+                            <span style={styles.fileText}>
+                              {receiptFile ? receiptFile.name : 'Choose File'}
+                            </span>
+                            <span style={styles.fileBrowseBtn}>Browse</span>
+                          </label>
+                        </div>
+
+                        {/* Show file name and status */}
+                        {receiptFile && (
+                          <div style={styles.uploadSuccessMsg}>
+                            <span style={styles.successIcon}>✅</span>
+                            <span>{receiptFile.name} - Ready to save</span>
+                          </div>
+                        )}
+
+                        {/* Remove selected file button */}
+                        {receiptFile && (
+                          <button 
+                            style={styles.removeFileBtn}
+                            onClick={() => {
+                              setReceiptFile(null);
+                              setReceiptPreview(null);
+                              setCompressedReceiptData(null);
+                              setUploadSuccess(false);
+                              if (fileInputRef.current) {
+                                fileInputRef.current.value = '';
+                              }
+                            }}
+                          >
+                            ✕ Remove
+                          </button>
+                        )}
+
+                        <p style={styles.supportedFormats}>
+                          Supported formats: JPEG, PNG, GIF (Max 5MB) - Auto compressed to ~150KB
+                        </p>
+
+                        {!selectedRegistration.receiptPreview && !receiptFile && (
+                          <div style={styles.noReceiptText}>No receipt uploaded</div>
+                        )}
+                      </>
+                    ) : (
+                      // View mode - show receipt if exists
+                      selectedRegistration.receiptPreview ? (
+                        <div 
+                          style={styles.receiptPreviewContainer}
+                          onClick={() => handleReceiptClick(selectedRegistration.receiptPreview)}
+                        >
+                          <img 
+                            src={selectedRegistration.receiptPreview} 
+                            alt="Receipt" 
+                            style={styles.receiptPreviewImage}
+                          />
+                          <div style={styles.receiptClickHint}>🔍 Click to enlarge</div>
+                        </div>
+                      ) : (
+                        <span style={styles.modalValue}>No receipt uploaded</span>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
@@ -1315,8 +1590,12 @@ const Dashboard = () => {
             <div style={styles.modalActions}>
               {isEditing ? (
                 <>
-                  <button style={styles.saveEditBtn} onClick={handleSaveEdit}>
-                    💾 Save Changes
+                  <button 
+                    style={styles.saveEditBtn} 
+                    onClick={handleSaveEdit}
+                    disabled={uploadingReceipt}
+                  >
+                    {uploadingReceipt ? '⏳ Saving...' : '💾 Save Changes'}
                   </button>
                   <button style={styles.cancelEditBtn} onClick={handleCancelEdit}>
                     ❌ Cancel
@@ -1331,12 +1610,32 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* ✅ RECEIPT MODAL */}
+      {showReceiptModal && receiptImageUrl && (
+        <div style={styles.modalOverlay} onClick={handleCloseReceiptModal}>
+          <div style={styles.receiptModalContent} onClick={(e) => e.stopPropagation()}>
+            <button style={styles.modalClose} onClick={handleCloseReceiptModal}>×</button>
+            <h2 style={styles.receiptModalTitle}>📷 Receipt Preview</h2>
+            <div style={styles.receiptFullContainer}>
+              <img 
+                src={receiptImageUrl} 
+                alt="Receipt Full View" 
+                style={styles.receiptFullImage}
+              />
+            </div>
+            <button style={styles.receiptCloseBtn} onClick={handleCloseReceiptModal}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // ============================================================
-// STYLES
+// STYLES (SAME AS PREVIOUS)
 // ============================================================
 
 const colors = {
@@ -1932,42 +2231,6 @@ const styles = {
     marginTop: '8px',
     flexWrap: 'wrap',
   },
-  downloadImageBtnModal: {
-    flex: 1,
-    minWidth: '140px',
-    padding: '14px 20px',
-    background: `linear-gradient(135deg, ${colors.darkBlue}, ${colors.blue})`,
-    color: 'white',
-    border: 'none',
-    borderRadius: '40px',
-    fontWeight: 700,
-    fontSize: '0.95rem',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    boxShadow: '0 6px 20px rgba(10, 112, 186, 0.30)',
-  },
-  downloadWaiverBtnModal: {
-    flex: 1,
-    minWidth: '140px',
-    padding: '14px 20px',
-    background: `linear-gradient(135deg, ${colors.yellow}, #f5a623)`,
-    color: colors.darkBlue,
-    border: 'none',
-    borderRadius: '40px',
-    fontWeight: 700,
-    fontSize: '0.95rem',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    boxShadow: '0 6px 20px rgba(237, 219, 11, 0.30)',
-  },
   closeModalBtn: {
     flex: 1,
     minWidth: '100px',
@@ -1998,6 +2261,10 @@ const styles = {
     justifyContent: 'center',
     gap: '8px',
     boxShadow: '0 6px 20px rgba(104, 180, 45, 0.30)',
+    '&:disabled': {
+      opacity: 0.6,
+      cursor: 'not-allowed',
+    },
   },
   cancelEditBtn: {
     flex: 0.5,
@@ -2260,23 +2527,216 @@ const styles = {
     fontSize: '12px',
     color: '#a0aec0',
   },
+  // ✅ Receipt Section Styles
+  receiptSection: {
+    marginTop: '12px',
+  },
+  receiptDivider: {
+    display: 'flex',
+    alignItems: 'center',
+    margin: '16px 0 12px 0',
+    '&::before, &::after': {
+      content: '""',
+      flex: 1,
+      borderTop: '2px solid #e2e8f0',
+    },
+    '& span': {
+      padding: '0 12px',
+      color: '#a0aec0',
+      fontWeight: 600,
+      fontSize: '0.8rem',
+    },
+  },
+  receiptContainer: {
+    background: 'rgba(247, 250, 252, 0.5)',
+    borderRadius: '12px',
+    padding: '16px',
+    border: '2px dashed rgba(0, 168, 171, 0.15)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    alignItems: 'center',
+  },
+  receiptPreviewContainer: {
+    cursor: 'pointer',
+    border: '2px solid #e2e8f0',
+    borderRadius: '12px',
+    padding: '8px',
+    transition: 'all 0.3s ease',
+    maxWidth: '200px',
+    background: '#f7fafc',
+    '&:hover': {
+      borderColor: colors.blue,
+      boxShadow: '0 4px 16px rgba(10, 112, 186, 0.15)',
+    },
+  },
+  receiptPreviewImage: {
+    width: '100%',
+    height: 'auto',
+    maxHeight: '120px',
+    objectFit: 'contain',
+    borderRadius: '8px',
+  },
+  receiptClickHint: {
+    textAlign: 'center',
+    fontSize: '0.7rem',
+    color: '#718096',
+    marginTop: '4px',
+    fontWeight: 500,
+  },
+  fileInputWrapper: {
+    width: '100%',
+    marginBottom: '4px',
+  },
+  fileInputHidden: {
+    position: 'absolute',
+    width: '0.1px',
+    height: '0.1px',
+    opacity: 0,
+    overflow: 'hidden',
+    zIndex: -1,
+  },
+  fileInputLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '10px 14px',
+    background: 'white',
+    border: '2px solid #e2e8f0',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    fontSize: '0.9rem',
+    '&:hover': {
+      borderColor: '#0A70BA',
+      background: '#f7fafc',
+    },
+  },
+  fileIcon: {
+    fontSize: '1.2rem',
+    marginRight: '8px',
+  },
+  fileText: {
+    flex: 1,
+    color: '#4a5568',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: '0.85rem',
+  },
+  fileBrowseBtn: {
+    padding: '4px 14px',
+    background: 'linear-gradient(135deg, #0A70BA, #2A499B)',
+    color: 'white',
+    borderRadius: '20px',
+    fontWeight: 600,
+    fontSize: '0.75rem',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'scale(1.05)',
+    },
+  },
+  uploadSuccessMsg: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    background: 'rgba(104, 180, 45, 0.10)',
+    borderRadius: '8px',
+    color: '#276749',
+    fontWeight: 600,
+    width: '100%',
+    border: '1px solid rgba(104, 180, 45, 0.20)',
+    fontSize: '0.9rem',
+  },
+  successIcon: {
+    fontSize: '1.1rem',
+  },
+  removeFileBtn: {
+    padding: '6px 14px',
+    background: 'rgba(254, 215, 215, 0.9)',
+    border: '1px solid #fc8181',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    color: '#c53030',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    fontWeight: 600,
+    '&:hover': {
+      background: '#fc8181',
+      color: 'white',
+    },
+  },
+  supportedFormats: {
+    fontSize: '0.7rem',
+    color: '#a0aec0',
+    textAlign: 'center',
+    margin: '4px 0 0 0',
+  },
+  noReceiptText: {
+    fontSize: '0.9rem',
+    color: '#a0aec0',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: '8px 0',
+  },
+  // Receipt Modal styles
+  receiptModalContent: {
+    background: 'white',
+    borderRadius: '28px',
+    maxWidth: '700px',
+    width: '100%',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    padding: '32px',
+    position: 'relative',
+    boxShadow: '0 40px 80px rgba(0,0,0,0.4), 0 0 0 4px rgba(237, 219, 11, 0.3)',
+    animation: 'slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+  },
+  receiptModalTitle: {
+    fontSize: '1.5rem',
+    fontWeight: 700,
+    color: colors.darkBlue,
+    margin: '0 0 16px 0',
+    textAlign: 'center',
+  },
+  receiptFullContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '16px 0',
+  },
+  receiptFullImage: {
+    maxWidth: '100%',
+    maxHeight: '70vh',
+    objectFit: 'contain',
+    borderRadius: '12px',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
+  },
+  receiptCloseBtn: {
+    width: '100%',
+    padding: '14px',
+    background: 'rgba(237, 242, 247, 0.9)',
+    color: '#4a5568',
+    border: '2px solid #e2e8f0',
+    borderRadius: '40px',
+    fontWeight: 600,
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    marginTop: '16px',
+    '&:hover': {
+      background: '#e2e8f0',
+    },
+  },
 };
 
-// CSS KEYFRAMES
+// CSS KEYFRAMES and additional styles
 const styleSheet2 = document.createElement('style');
 styleSheet2.textContent = `
   @keyframes spin {
     to { transform: rotate(360deg); }
-  }
-
-  @keyframes floatGlow {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    50% { transform: translate(30px, -30px) scale(1.1); }
-  }
-
-  @keyframes pulseGlow {
-    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
-    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
   }
 
   @keyframes fadeIn {
@@ -2306,6 +2766,16 @@ styleSheet2.textContent = `
       transform: translateY(0);
       max-height: 600px;
     }
+  }
+
+  .spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s ease-in-out infinite;
   }
 
   .view-btn:hover {
@@ -2350,6 +2820,12 @@ styleSheet2.textContent = `
     border-color: #0A70BA !important;
     box-shadow: 0 0 0 3px rgba(10, 112, 186, 0.12) !important;
     background: white !important;
+  }
+
+  .receipt-preview-container:hover {
+    border-color: #0A70BA !important;
+    box-shadow: 0 4px 16px rgba(10, 112, 186, 0.15) !important;
+    transform: scale(1.02) !important;
   }
 
   @media (max-width: 768px) {
@@ -2435,6 +2911,27 @@ styleSheet2.textContent = `
       align-items: flex-start !important;
       gap: 8px !important;
     }
+
+    .receipt-modal-content {
+      padding: 20px 12px !important;
+    }
+
+    .receipt-preview-container {
+      max-width: 100% !important;
+    }
+
+    .receipt-full-image {
+      max-height: 50vh !important;
+    }
+
+    .file-input-label {
+      font-size: 0.8rem !important;
+      padding: 8px 12px !important;
+    }
+
+    .file-text {
+      font-size: 0.75rem !important;
+    }
   }
 
   @media (max-width: 480px) {
@@ -2474,6 +2971,14 @@ styleSheet2.textContent = `
     .waiver-display-field-label {
       min-width: 100px !important;
       font-size: 0.8rem !important;
+    }
+
+    .receipt-modal-title {
+      font-size: 1.2rem !important;
+    }
+
+    .receipt-full-container {
+      padding: 8px 0 !important;
     }
   }
 `;

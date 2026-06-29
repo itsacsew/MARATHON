@@ -12,7 +12,8 @@ const EventModal = ({
   onEventSelect,
   onProceed,
   categoryName,
-  isEditing = false
+  isEditing = false,
+  onBackToCategory // NEW: Prop for going back to category selection
 }) => {
   const [selectedShirtSize, setSelectedShirtSize] = useState('');
   const [localSelectedEvent, setLocalSelectedEvent] = useState(selectedEvent);
@@ -86,6 +87,18 @@ const EventModal = ({
     onClose();
   };
 
+  const handleBackToCategory = () => {
+    // Reset local state
+    setLocalSelectedEvent(selectedEvent);
+    setSelectedShirtSize('');
+    setAgreedToWaiver(false);
+    setErrorMessage('');
+    // Call the back to category function
+    if (onBackToCategory) {
+      onBackToCategory();
+    }
+  };
+
   // Get selected event details
   const getSelectedEventDetails = () => {
     return events.find(e => e.id === localSelectedEvent);
@@ -97,6 +110,17 @@ const EventModal = ({
     <>
       <div className="modal-overlay" onClick={handleClose}>
         <div className="modal-content event-modal" onClick={(e) => e.stopPropagation()}>
+          {/* Back Button - Upper Left */}
+          <button 
+            className="modal-close1" 
+            onClick={handleBackToCategory}
+            
+            title="Back to Categories"
+          >
+            ←
+          </button>
+          
+          {/* Close Button - Upper Right */}
           <button className="modal-close" onClick={handleClose}>×</button>
           
           <h2>🎯 Race Preferences</h2>
@@ -268,8 +292,8 @@ const EventModal = ({
             Proceed
           </button>
 
-          <button className="modal-close-btn" onClick={handleClose} style={{ marginTop: '12px' }}>
-            Cancel
+          <button className="modal-close-btn" onClick={handleBackToCategory} style={{ marginTop: '12px' }}>
+            Back to Category
           </button>
         </div>
       </div>
@@ -288,6 +312,26 @@ const EventModal = ({
 // ============================================================
 
 const styles = {
+  backBtn: {
+    position: 'absolute',
+    top: '20px',
+    left: '20px',
+    background: 'rgba(237, 242, 247, 0.8)',
+    border: '2px solid #e2e8f0',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    fontSize: '1.2rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#4a5568',
+    fontWeight: 700,
+    zIndex: 10,
+  },
+  
   sectionLabel: {
     display: 'block',
     fontWeight: 700,
@@ -422,6 +466,28 @@ styleSheet.textContent = `
   .event-modal {
     max-width: 550px !important;
     width: 95% !important;
+    position: relative !important;
+  }
+  .modal-close1 {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #7f8b9a;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.modal-close1:hover {
+  color: var(--liloan-dark);
+  transform: rotate(90deg);
+}
+
+  
+  .modal-back:hover {
+    background: #e2e8f0 !important;
+    transform: scale(1.05) !important;
   }
   
   .event-select-btn:hover {
@@ -456,6 +522,20 @@ styleSheet.textContent = `
   @media (max-width: 480px) {
     .event-modal {
       padding: 20px 16px !important;
+    }
+    .modal-back {
+      top: 14px !important;
+      left: 14px !important;
+      width: 34px !important;
+      height: 34px !important;
+      font-size: 1rem !important;
+    }
+    .modal-close {
+      top: 14px !important;
+      right: 14px !important;
+      width: 34px !important;
+      height: 34px !important;
+      font-size: 1.2rem !important;
     }
     .event-select-btn {
       padding: 12px 14px !important;
@@ -504,6 +584,20 @@ styleSheet.textContent = `
   @media (max-width: 380px) {
     .event-modal {
       padding: 16px 12px !important;
+    }
+    .modal-back {
+      top: 10px !important;
+      left: 10px !important;
+      width: 30px !important;
+      height: 30px !important;
+      font-size: 0.9rem !important;
+    }
+    .modal-close {
+      top: 10px !important;
+      right: 10px !important;
+      width: 30px !important;
+      height: 30px !important;
+      font-size: 1rem !important;
     }
     .event-select-btn {
       padding: 10px 12px !important;

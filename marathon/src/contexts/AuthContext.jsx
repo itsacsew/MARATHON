@@ -7,13 +7,17 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, setDoc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore'; // <-- ADDED updateDoc
+import { doc, setDoc, getDoc, collection, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
 export function useAuth() {
   return useContext(AuthContext);
 }
+
+// HARD CODED SUPER ADMIN CREDENTIALS
+const SUPER_ADMIN_EMAIL = 'superadmin@gmail.com';
+const SUPER_ADMIN_PASSWORD = 'SuperAdmin123';
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -33,6 +37,7 @@ export function AuthProvider({ children }) {
         email: user.email,
         displayName: displayName,
         isAdmin: isAdmin || false,
+        isSuperAdmin: false,
         createdAt: new Date().toISOString(),
         registrations: []
       });
@@ -44,12 +49,71 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Login function
+  // Login function - FIXED
   async function login(email, password) {
     try {
+      // Check if it's the hardcoded super admin
+      if (email === SUPER_ADMIN_EMAIL && password === SUPER_ADMIN_PASSWORD) {
+        try {
+          // Try to sign in first
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          
+          // Check if super admin exists in Firestore
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (!userSnap.exists()) {
+            // Create super admin in Firestore
+            await setDoc(userRef, {
+              uid: user.uid,
+              email: user.email,
+              displayName: 'Super Admin',
+              isAdmin: true,
+              isSuperAdmin: true,
+              createdAt: new Date().toISOString(),
+              registrations: []
+            });
+          } else {
+            // Update existing user to be super admin if not already
+            const existingData = userSnap.data();
+            if (!existingData.isSuperAdmin) {
+              await setDoc(userRef, {
+                isAdmin: true,
+                isSuperAdmin: true
+              }, { merge: true });
+            }
+          }
+          
+          return user;
+        } catch (firebaseError) {
+          // If user doesn't exist, create them
+          if (firebaseError.code === 'auth/user-not-found') {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            
+            // Set super admin in Firestore
+            await setDoc(doc(db, 'users', user.uid), {
+              uid: user.uid,
+              email: user.email,
+              displayName: 'Super Admin',
+              isAdmin: true,
+              isSuperAdmin: true,
+              createdAt: new Date().toISOString(),
+              registrations: []
+            });
+            
+            return user;
+          }
+          throw firebaseError;
+        }
+      }
+      
+      // Regular login
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       return userCredential.user;
     } catch (error) {
+      console.error('Login error:', error);
       throw error;
     }
   }
@@ -77,6 +141,7 @@ export function AuthProvider({ children }) {
             email: currentUser?.email || '',
             displayName: currentUser?.displayName || '',
             isAdmin: false,
+            isSuperAdmin: false,
             createdAt: new Date().toISOString(),
             registrations: []
           };
@@ -123,6 +188,7 @@ export function AuthProvider({ children }) {
           email: currentUser?.email || '',
           displayName: currentUser?.displayName || '',
           isAdmin: false,
+          isSuperAdmin: false,
           createdAt: new Date().toISOString(),
           registrations: [registrationData]
         };
@@ -135,7 +201,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // ✅ UPDATE REGISTRATION - New function for editing
+  // UPDATE REGISTRATION
   async function updateRegistration(uid, registrationId, updateData) {
     try {
       const userRef = doc(db, 'users', uid);
@@ -148,31 +214,78 @@ export function AuthProvider({ children }) {
       const userData = userSnap.data();
       const registrations = userData.registrations || [];
       
-      // Find the registration to update
       const registrationIndex = registrations.findIndex(reg => reg.id === registrationId);
       
       if (registrationIndex === -1) {
         throw new Error('Registration not found');
       }
 
-      // Update the registration data (preserve existing data, merge with updateData)
       registrations[registrationIndex] = {
         ...registrations[registrationIndex],
         ...updateData,
-        updatedAt: new Date().toISOString() // Track when it was updated
+        updatedAt: new Date().toISOString()
       };
 
-      // Save back to Firestore
       await setDoc(userRef, {
         ...userData,
         registrations: registrations
       }, { merge: true });
 
-      // Return the updated registration
       return registrations[registrationIndex];
       
     } catch (error) {
       console.error('Error updating registration:', error);
+      throw error;
+    }
+  }
+
+  // DELETE REGISTRATION - SUPER ADMIN ONLY
+  async function deleteRegistration(uid, registrationId) {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        throw new Error('User document not found');
+      }
+
+      const userData = userSnap.data();
+      const registrations = userData.registrations || [];
+      
+      const registrationIndex = registrations.findIndex(reg => reg.id === registrationId);
+      
+      if (registrationIndex === -1) {
+        throw new Error('Registration not found');
+      }
+
+      registrations.splice(registrationIndex, 1);
+
+      await setDoc(userRef, {
+        ...userData,
+        registrations: registrations
+      }, { merge: true });
+
+      return true;
+      
+    } catch (error) {
+      console.error('Error deleting registration:', error);
+      throw error;
+    }
+  }
+
+  // DELETE USER - SUPER ADMIN ONLY
+  async function deleteUser(uid) {
+    try {
+      if (uid === currentUser?.uid) {
+        throw new Error('Cannot delete your own account');
+      }
+      
+      const userRef = doc(db, 'users', uid);
+      await deleteDoc(userRef);
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting user:', error);
       throw error;
     }
   }
@@ -194,7 +307,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Get all users (admin only)
+  // Get all users
   async function getAllUsers() {
     try {
       const usersRef = collection(db, 'users');
@@ -209,6 +322,7 @@ export function AuthProvider({ children }) {
           displayName: userData.displayName || 'Unknown',
           email: userData.email || 'Unknown',
           isAdmin: userData.isAdmin || false,
+          isSuperAdmin: userData.isSuperAdmin || false,
           createdAt: userData.createdAt || new Date().toISOString(),
           registrations: userData.registrations || [],
           registrationCount: (userData.registrations || []).length
@@ -226,7 +340,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Get all registrations from all users (admin only)
+  // Get all registrations
   async function getAllRegistrations() {
     try {
       const usersRef = collection(db, 'users');
@@ -242,7 +356,8 @@ export function AuthProvider({ children }) {
             userId: userDoc.id,
             userEmail: userData.email || 'Unknown',
             userDisplayName: userData.displayName || 'Unknown',
-            isAdmin: userData.isAdmin || false
+            isAdmin: userData.isAdmin || false,
+            isSuperAdmin: userData.isSuperAdmin || false
           }));
           allRegistrations = [...allRegistrations, ...registrationsWithUser];
         }
@@ -259,7 +374,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Auth state observer - FIXED
+  // Auth state observer
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -279,7 +394,7 @@ export function AuthProvider({ children }) {
 
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed getUserData from dependencies
+  }, []);
 
   const value = {
     currentUser,
@@ -293,7 +408,11 @@ export function AuthProvider({ children }) {
     getUserRegistrations,
     getAllUsers,
     getAllRegistrations,
-    updateRegistration // ✅ EXPORTED - Available for Dashboard
+    updateRegistration,
+    deleteRegistration,
+    deleteUser,
+    SUPER_ADMIN_EMAIL,
+    SUPER_ADMIN_PASSWORD
   };
 
   return (

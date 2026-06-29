@@ -22,6 +22,10 @@ const Dashboard = () => {
   const [receiptPreviews, setReceiptPreviews] = useState([]);
   const [compressedReceiptData, setCompressedReceiptData] = useState([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadImageUrl, setDownloadImageUrl] = useState('');
+  const [downloadFileName, setDownloadFileName] = useState('');
+  const [downloadType, setDownloadType] = useState('');
   const fileInputRef = useRef(null);
   const captureRef = useRef(null);
   const waiverCaptureRef = useRef(null);
@@ -131,6 +135,103 @@ const Dashboard = () => {
     });
   };
 
+  // ✅ Universal download function - works on all devices including Facebook in-app browser
+  const downloadImage = () => {
+    if (!downloadImageUrl) return;
+
+    // ✅ Check if iPhone or Safari or Facebook in-app
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isFacebook = navigator.userAgent.includes('FBAV') || navigator.userAgent.includes('FBAN');
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    if (isIOS || isSafari || isFacebook) {
+      // For iPhone/Safari/Facebook - use fetch to create a blob
+      fetch(downloadImageUrl)
+        .then(response => response.blob())
+        .then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Create a temporary anchor element
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = downloadFileName;
+          link.style.display = 'none';
+          
+          // Add to document, click, and remove
+          document.body.appendChild(link);
+          link.click();
+          
+          // Clean up
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+          }, 200);
+        })
+        .catch(() => {
+          // Fallback: Open in new tab with instructions
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(`
+              <html>
+                <head><title>Download Image</title></head>
+                <body style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:Arial;background:#f7fafc;margin:0;padding:20px;">
+                  <div style="background:white;border-radius:16px;padding:24px;max-width:500px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,0.1);">
+                    <h2 style="color:#2A499B;text-align:center;margin-top:0;">📥 Download Image</h2>
+                    <img src="${downloadImageUrl}" style="width:100%;height:auto;border-radius:8px;border:2px solid #e2e8f0;" />
+                    <div style="margin-top:16px;text-align:center;">
+                      <p style="color:#4a5568;font-size:14px;">👆 <strong>Long press</strong> the image above</p>
+                      <p style="color:#4a5568;font-size:14px;margin-top:4px;">Select <strong>"Save Image"</strong> to download to your device</p>
+                      <button onclick="window.close()" style="margin-top:16px;padding:12px 32px;background:linear-gradient(135deg,#2A499B,#0A70BA);color:white;border:none;border-radius:40px;font-size:16px;cursor:pointer;font-weight:600;">Close</button>
+                    </div>
+                  </div>
+                  <script>
+                    setTimeout(() => window.close(), 60000);
+                  <\/script>
+                </body>
+              </html>
+            `);
+            newWindow.document.title = downloadFileName;
+          } else {
+            // Last resort: show alert with instructions
+            alert('📸 Please allow pop-ups.\n\nLong press the image that appears and select "Save Image" to download.');
+            // Open image in current window
+            const img = document.createElement('img');
+            img.src = downloadImageUrl;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '80vh';
+            img.style.display = 'block';
+            img.style.margin = '0 auto';
+            document.body.innerHTML = '';
+            document.body.appendChild(img);
+          }
+        });
+    } else {
+      // Standard download for other browsers
+      const link = document.createElement('a');
+      link.download = downloadFileName;
+      link.href = downloadImageUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    // Close the download modal after a moment
+    setTimeout(() => {
+      setShowDownloadModal(false);
+      setDownloadImageUrl('');
+      setDownloadFileName('');
+      setDownloadType('');
+    }, 1000);
+  };
+
+  // Close download modal without downloading
+  const closeDownloadModal = () => {
+    setShowDownloadModal(false);
+    setDownloadImageUrl('');
+    setDownloadFileName('');
+    setDownloadType('');
+  };
+
   // ============================================================
   // FUNCTION 1: DOWNLOAD PAYMENT CARD
   // ============================================================
@@ -199,27 +300,40 @@ const Dashboard = () => {
     document.body.appendChild(tempDiv);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const rect = tempDiv.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // ✅ Force reflow to ensure proper rendering
+      const forceReflow = tempDiv.offsetHeight;
+      // eslint-disable-next-line no-unused-expressions
+      forceReflow;
+      
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        width: width,
-        height: height,
-        windowWidth: width,
-        windowHeight: height,
+        width: 500,
+        height: tempDiv.scrollHeight,
+        windowWidth: 500,
+        windowHeight: tempDiv.scrollHeight,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector('[style*="left: -9999px"]');
+          if (clonedElement) {
+            clonedElement.style.width = '500px';
+            clonedElement.style.maxWidth = '500px';
+          }
+        }
       });
 
-      const link = document.createElement('a');
-      link.download = `payment-${registration.referenceNumber || 'confirmation'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const imageData = canvas.toDataURL('image/png');
+      const fileName = `payment-${registration.referenceNumber || 'confirmation'}.png`;
+      
+      setDownloadImageUrl(imageData);
+      setDownloadFileName(fileName);
+      setDownloadType('payment');
+      setShowDownloadModal(true);
+
     } catch (error) {
       console.error('Error generating payment image:', error);
       alert('Failed to generate payment image. Please try again.');
@@ -395,27 +509,40 @@ const Dashboard = () => {
     document.body.appendChild(tempDiv);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const rect = tempDiv.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // ✅ Force reflow
+      const forceReflow = tempDiv.offsetHeight;
+      // eslint-disable-next-line no-unused-expressions
+      forceReflow;
+      
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        width: width,
-        height: height,
-        windowWidth: width,
-        windowHeight: height,
+        width: 550,
+        height: tempDiv.scrollHeight,
+        windowWidth: 550,
+        windowHeight: tempDiv.scrollHeight,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector('[style*="left: -9999px"]');
+          if (clonedElement) {
+            clonedElement.style.width = '550px';
+            clonedElement.style.maxWidth = '550px';
+          }
+        }
       });
 
-      const link = document.createElement('a');
-      link.download = `registration-form-${registration.referenceNumber || 'confirmation'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const imageData = canvas.toDataURL('image/png');
+      const fileName = `registration-form-${registration.referenceNumber || 'confirmation'}.png`;
+      
+      setDownloadImageUrl(imageData);
+      setDownloadFileName(fileName);
+      setDownloadType('registration');
+      setShowDownloadModal(true);
+
     } catch (error) {
       console.error('Error generating registration form image:', error);
       alert('Failed to generate registration form image. Please try again.');
@@ -493,27 +620,40 @@ const Dashboard = () => {
     document.body.appendChild(tempDiv);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const rect = tempDiv.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // ✅ Force reflow
+      const forceReflow = tempDiv.offsetHeight;
+      // eslint-disable-next-line no-unused-expressions
+      forceReflow;
+      
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
         allowTaint: true,
-        width: width,
-        height: height,
-        windowWidth: width,
-        windowHeight: height,
+        width: 550,
+        height: tempDiv.scrollHeight,
+        windowWidth: 550,
+        windowHeight: tempDiv.scrollHeight,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.querySelector('[style*="left: -9999px"]');
+          if (clonedElement) {
+            clonedElement.style.width = '550px';
+            clonedElement.style.maxWidth = '550px';
+          }
+        }
       });
 
-      const link = document.createElement('a');
-      link.download = `waiver-${registration.userName || 'participant'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const imageData = canvas.toDataURL('image/png');
+      const fileName = `waiver-${registration.userName || 'participant'}.png`;
+      
+      setDownloadImageUrl(imageData);
+      setDownloadFileName(fileName);
+      setDownloadType('waiver');
+      setShowDownloadModal(true);
+
     } catch (error) {
       console.error('Error generating waiver image:', error);
       alert('Failed to generate waiver image. Please try again.');
@@ -827,38 +967,27 @@ const Dashboard = () => {
       // ✅ Get existing receipts (support both formats)
       let existingReceipts = [];
       
-      // Check for receiptPreviews (array from Dashboard edit)
       if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
         existingReceipts = selectedRegistration.receiptPreviews;
-      } 
-      // Check for receiptPreview (string from SuccessModal)
-      else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
+      } else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
         existingReceipts = [selectedRegistration.receiptPreview];
       }
 
-      // ✅ If there are new compressed receipt data, APPEND them to existing
       if (compressedReceiptData.length > 0) {
         const allReceipts = [...existingReceipts, ...compressedReceiptData];
-        
         updateData.receiptPreviews = allReceipts;
         updateData.hasReceipts = true;
-        
-        // Remove old receiptPreview if exists (convert to array format)
         if (selectedRegistration.receiptPreview) {
           updateData.receiptPreview = null;
         }
-        
-        // Get existing file names or create new array
         const existingFileNames = selectedRegistration.receiptFileNames || [];
         const newFileNames = receiptFiles.map(f => f.name);
         updateData.receiptFileNames = [...existingFileNames, ...newFileNames];
         updateData.receiptUploadedAt = new Date().toISOString();
       } else {
-        // If there are existing receipts but no new ones, make sure they're preserved
         if (existingReceipts.length > 0) {
           updateData.receiptPreviews = existingReceipts;
           updateData.hasReceipts = true;
-          // Remove old receiptPreview if exists
           if (selectedRegistration.receiptPreview) {
             updateData.receiptPreview = null;
           }
@@ -1011,6 +1140,9 @@ const Dashboard = () => {
     setIsWaiverOpen(!isWaiverOpen);
   };
 
+  // ============================================================
+  // RETURN JSX
+  // ============================================================
   return (
     <div style={styles.dashboard}>
       <div style={styles.backgroundEffects}>
@@ -1538,7 +1670,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* ✅ Event Details with Dropdowns and Arrows */}
+              {/* ✅ Event Details */}
               <div style={styles.modalSection}>
                 <div style={styles.sectionHeader}>
                   <h3 style={styles.modalSectionTitle}>🏁 Event Details</h3>
@@ -1551,7 +1683,6 @@ const Dashboard = () => {
                 <div style={styles.modalGrid}>
                   {isEditing ? (
                     <>
-                      {/* Category Dropdown with Arrow */}
                       <div style={styles.modalItem}>
                         <span style={styles.modalLabel}>Category <span style={styles.required}>*</span></span>
                         <div style={styles.selectWrapper}>
@@ -1570,7 +1701,6 @@ const Dashboard = () => {
                         </div>
                       </div>
 
-                      {/* Event Dropdown with Arrow */}
                       <div style={styles.modalItem}>
                         <span style={styles.modalLabel}>Event <span style={styles.required}>*</span></span>
                         <div style={styles.selectWrapper}>
@@ -1590,7 +1720,6 @@ const Dashboard = () => {
                         </div>
                       </div>
 
-                      {/* Distance - Auto-filled, read-only */}
                       <div style={styles.modalItem}>
                         <span style={styles.modalLabel}>Distance</span>
                         <input
@@ -1602,7 +1731,6 @@ const Dashboard = () => {
                         />
                       </div>
 
-                      {/* Shirt Size Dropdown with Arrow */}
                       <div style={styles.modalItem}>
                         <span style={styles.modalLabel}>Shirt Size <span style={styles.required}>*</span></span>
                         <div style={styles.selectWrapper}>
@@ -1621,7 +1749,6 @@ const Dashboard = () => {
                         </div>
                       </div>
 
-                      {/* Fee - Auto-filled, read-only */}
                       <div style={styles.modalItem}>
                         <span style={styles.modalLabel}>Fee</span>
                         <input
@@ -1633,7 +1760,6 @@ const Dashboard = () => {
                       </div>
                     </>
                   ) : (
-                    // View mode - display event details
                     <>
                       <div style={styles.modalItem}>
                         <span style={styles.modalLabel}>Event</span>
@@ -1660,7 +1786,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* PAYMENT DETAILS SECTION WITH MULTIPLE RECEIPT UPLOAD - UPDATED */}
+              {/* PAYMENT DETAILS SECTION */}
               <div style={styles.modalSection}>
                 <h3 style={styles.modalSectionTitle}>💳 Payment Details</h3>
                 <div style={styles.modalGrid}>
@@ -1695,7 +1821,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* RECEIPT SECTION - UPDATED to support both formats */}
+                {/* RECEIPT SECTION */}
                 <div style={styles.receiptSection}>
                   <div style={styles.receiptDivider}>
                     <span>RECEIPTS</span>
@@ -1704,17 +1830,11 @@ const Dashboard = () => {
                   <div style={styles.receiptContainer}>
                     {isEditing ? (
                       <>
-                        {/* ✅ Show existing receipts - supports both formats */}
                         {(() => {
-                          // Get all existing receipts (supports both receiptPreview and receiptPreviews)
                           let existingReceipts = [];
-                          
-                          // Check if there are receiptPreviews (array from Dashboard edit)
                           if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
                             existingReceipts = selectedRegistration.receiptPreviews;
-                          } 
-                          // Check if there's a receiptPreview (string from SuccessModal)
-                          else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
+                          } else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
                             existingReceipts = [selectedRegistration.receiptPreview];
                           }
                           
@@ -1738,7 +1858,6 @@ const Dashboard = () => {
                           ) : null;
                         })()}
                         
-                        {/* Show new receipt previews */}
                         {receiptPreviews.length > 0 && (
                           <div style={styles.receiptGrid}>
                             {receiptPreviews.map((preview, idx) => (
@@ -1793,7 +1912,6 @@ const Dashboard = () => {
                         </p>
 
                         {(() => {
-                          // Check if there are any existing receipts
                           let hasExisting = false;
                           if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
                             hasExisting = true;
@@ -1813,16 +1931,11 @@ const Dashboard = () => {
                         )}
                       </>
                     ) : (
-                      // View mode - show receipts if exists (supports both formats)
                       (() => {
                         let existingReceipts = [];
-                        
-                        // Check for receiptPreviews (array from Dashboard edit)
                         if (selectedRegistration.receiptPreviews && Array.isArray(selectedRegistration.receiptPreviews) && selectedRegistration.receiptPreviews.length > 0) {
                           existingReceipts = selectedRegistration.receiptPreviews;
-                        } 
-                        // Check for receiptPreview (string from SuccessModal)
-                        else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
+                        } else if (selectedRegistration.receiptPreview && typeof selectedRegistration.receiptPreview === 'string') {
                           existingReceipts = [selectedRegistration.receiptPreview];
                         }
                         
@@ -1957,12 +2070,45 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* ============================================================ */}
+      {/* DOWNLOAD MODAL - Shows image preview with download button */}
+      {/* ============================================================ */}
+      {showDownloadModal && downloadImageUrl && (
+        <div style={styles.downloadModalOverlay} onClick={closeDownloadModal}>
+          <div style={styles.downloadModalContent} onClick={(e) => e.stopPropagation()}>
+            <button style={styles.downloadModalClose} onClick={closeDownloadModal}>×</button>
+            <h3 style={styles.downloadModalTitle}>
+              📥 Download {downloadType === 'payment' ? 'Payment' : downloadType === 'waiver' ? 'Waiver' : 'Registration'}
+            </h3>
+            <p style={styles.downloadModalSubtitle}>Preview your image before downloading</p>
+            
+            <div style={styles.downloadModalImageContainer}>
+              <img src={downloadImageUrl} alt="Download Preview" style={styles.downloadModalImage} />
+            </div>
+            
+            <div style={styles.downloadModalActions}>
+              <button style={styles.downloadModalDownloadBtn} onClick={downloadImage}>
+                <span style={styles.downloadIcon}>⬇️</span>
+                Download Now
+              </button>
+              <button style={styles.downloadModalCloseBtn} onClick={closeDownloadModal}>
+                Cancel
+              </button>
+            </div>
+            
+            <p style={styles.downloadModalHint}>
+              💡 If download doesn't start automatically, long press the image and select "Save Image"
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // ============================================================
-// STYLES - UPDATED with arrow styles
+// STYLES - Keeping all styles
 // ============================================================
 
 const colors = {
@@ -2527,19 +2673,6 @@ const styles = {
     WebkitAppearance: 'none',
     MozAppearance: 'none',
     cursor: 'pointer',
-    '&:disabled': {
-      background: '#f7fafc',
-      cursor: 'not-allowed',
-      opacity: 0.7,
-    },
-    '&:hover': {
-      borderColor: colors.blue,
-    },
-    '&:focus': {
-      outline: 'none',
-      borderColor: colors.blue,
-      boxShadow: '0 0 0 3px rgba(10, 112, 186, 0.12)',
-    },
   },
   editTextarea: {
     padding: '8px 12px',
@@ -2603,10 +2736,6 @@ const styles = {
     justifyContent: 'center',
     gap: '8px',
     boxShadow: '0 6px 20px rgba(104, 180, 45, 0.30)',
-    '&:disabled': {
-      opacity: 0.5,
-      cursor: 'not-allowed',
-    },
   },
   cancelEditBtn: {
     flex: 0.5,
@@ -2877,17 +3006,6 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     margin: '16px 0 12px 0',
-    '&::before, &::after': {
-      content: '""',
-      flex: 1,
-      borderTop: '2px solid #a0aec0',
-    },
-    '& span': {
-      padding: '0 12px',
-      color: '#a0aec0',
-      fontWeight: 600,
-      fontSize: '0.8rem',
-    },
   },
   receiptContainer: {
     background: 'rgba(247, 250, 252, 0.5)',
@@ -2913,10 +3031,6 @@ const styles = {
     transition: 'all 0.3s ease',
     background: '#f7fafc',
     position: 'relative',
-    '&:hover': {
-      borderColor: colors.blue,
-      boxShadow: '0 4px 16px rgba(10, 112, 186, 0.15)',
-    },
   },
   receiptPreviewImage: {
     width: '100%',
@@ -2948,10 +3062,6 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'all 0.3s ease',
-    '&:hover': {
-      transform: 'scale(1.1)',
-      background: '#f56565',
-    },
   },
   fileInputWrapper: {
     width: '100%',
@@ -2976,10 +3086,6 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     fontSize: '0.9rem',
-    '&:hover': {
-      borderColor: '#0A70BA',
-      background: '#f7fafc',
-    },
   },
   fileIcon: {
     fontSize: '1.2rem',
@@ -3001,9 +3107,6 @@ const styles = {
     fontWeight: 600,
     fontSize: '0.75rem',
     transition: 'all 0.3s ease',
-    '&:hover': {
-      transform: 'scale(1.05)',
-    },
   },
   uploadSuccessMsg: {
     display: 'flex',
@@ -3090,9 +3193,123 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     marginTop: '16px',
-    '&:hover': {
-      background: '#e2e8f0',
-    },
+  },
+  downloadModalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.8)',
+    backdropFilter: 'blur(10px)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    padding: '20px',
+    animation: 'fadeIn 0.3s ease',
+  },
+  downloadModalContent: {
+    background: 'white',
+    borderRadius: '28px',
+    maxWidth: '520px',
+    width: '100%',
+    maxHeight: '90vh',
+    padding: '32px 28px',
+    position: 'relative',
+    boxShadow: '0 40px 80px rgba(0,0,0,0.5)',
+    animation: 'slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    overflowY: 'auto',
+  },
+  downloadModalClose: {
+    position: 'absolute',
+    top: '12px',
+    right: '16px',
+    background: 'none',
+    border: 'none',
+    fontSize: '2rem',
+    cursor: 'pointer',
+    color: '#4a5568',
+    transition: 'all 0.3s ease',
+    padding: '4px 12px',
+    borderRadius: '8px',
+    zIndex: 10,
+  },
+  downloadModalTitle: {
+    fontSize: '1.5rem',
+    fontWeight: 700,
+    color: '#2A499B',
+    margin: '0 0 4px 0',
+    textAlign: 'center',
+  },
+  downloadModalSubtitle: {
+    fontSize: '0.9rem',
+    color: '#718096',
+    textAlign: 'center',
+    margin: '0 0 16px 0',
+  },
+  downloadModalImageContainer: {
+    background: '#f7fafc',
+    borderRadius: '16px',
+    padding: '12px',
+    marginBottom: '16px',
+    border: '2px solid #e2e8f0',
+    maxHeight: '400px',
+    overflow: 'auto',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadModalImage: {
+    maxWidth: '100%',
+    height: 'auto',
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+  },
+  downloadModalActions: {
+    display: 'flex',
+    gap: '12px',
+  },
+  downloadModalDownloadBtn: {
+    flex: 2,
+    padding: '14px 20px',
+    background: 'linear-gradient(135deg, #68B42D, #48a71a)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '40px',
+    fontWeight: 700,
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    boxShadow: '0 6px 20px rgba(104, 180, 45, 0.30)',
+  },
+  downloadIcon: {
+    fontSize: '1.2rem',
+  },
+  downloadModalCloseBtn: {
+    flex: 1,
+    padding: '14px 20px',
+    background: 'rgba(237, 242, 247, 0.9)',
+    color: '#4a5568',
+    border: '2px solid #e2e8f0',
+    borderRadius: '40px',
+    fontWeight: 600,
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
+  downloadModalHint: {
+    fontSize: '0.75rem',
+    color: '#a0aec0',
+    textAlign: 'center',
+    margin: '12px 0 0 0',
+    padding: '8px',
+    background: '#f7fafc',
+    borderRadius: '8px',
   },
 };
 
@@ -3314,6 +3531,25 @@ styleSheet2.textContent = `
     .receipt-grid {
       grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
     }
+
+    .download-modal-content {
+      padding: 24px 16px !important;
+      margin: 8px !important;
+      border-radius: 20px !important;
+    }
+
+    .download-modal-actions {
+      flex-direction: column !important;
+    }
+
+    .download-modal-download-btn,
+    .download-modal-close-btn {
+      width: 100% !important;
+    }
+
+    .download-modal-title {
+      font-size: 1.2rem !important;
+    }
   }
 
   @media (max-width: 480px) {
@@ -3365,6 +3601,19 @@ styleSheet2.textContent = `
 
     .receipt-grid {
       grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)) !important;
+    }
+
+    .download-modal-content {
+      padding: 20px 12px !important;
+      border-radius: 20px !important;
+    }
+
+    .download-modal-title {
+      font-size: 1.1rem !important;
+    }
+
+    .download-modal-image-container {
+      max-height: 300px !important;
     }
   }
 `;

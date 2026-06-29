@@ -24,7 +24,7 @@ const EventSummaryModal = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content summary-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
-        
+        <button className="modal-close1" onClick={onBackToEvent}>←</button>
         <h2>📋 Registration Summary</h2>
         <p className="category-label" style={{ marginBottom: '20px' }}>
           Review your selections before proceeding to payment
@@ -73,7 +73,7 @@ const EventSummaryModal = ({
             onClick={onBackToEvent}
             disabled={isSubmitting}
           >
-            ← Back to Event
+            Back to Event
           </button>
           <button 
             style={styles.closeBtn}

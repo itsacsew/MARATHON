@@ -665,7 +665,23 @@ body {
   transition: all 0.2s ease;
 }
 
+
 .modal-close:hover {
+  color: var(--liloan-dark);
+  transform: rotate(90deg);
+}
+.modal-close1 {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #7f8b9a;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.modal-close1:hover {
   color: var(--liloan-dark);
   transform: rotate(90deg);
 }
@@ -4266,5 +4282,328 @@ button:disabled {
     margin: 10px;
     padding: 15px !important;
     max-height: 95vh !important;
+  }
+}
+/* ============================================================
+   SUPER ADMIN SPECIFIC STYLES
+   ============================================================ */
+
+/* Super Admin Badge */
+.super-admin-badge {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+  padding: 6px 18px;
+  border-radius: 30px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+  letter-spacing: 0.5px;
+}
+
+.super-admin-header {
+  border-left: 6px solid #f5576c;
+}
+
+/* Super Admin Actions */
+.super-admin-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.edit-btn-action {
+  padding: 6px 10px;
+  background: rgba(237, 219, 11, 0.15);
+  border: 1px solid rgba(237, 219, 11, 0.30);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.edit-btn-action:hover {
+  background: rgba(237, 219, 11, 0.30);
+  transform: scale(1.05);
+}
+
+.delete-btn-action {
+  padding: 6px 10px;
+  background: rgba(245, 87, 108, 0.15);
+  border: 1px solid rgba(245, 87, 108, 0.30);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.delete-btn-action:hover {
+  background: rgba(245, 87, 108, 0.30);
+  transform: scale(1.05);
+}
+
+/* Edit Modal */
+.edit-modal {
+  max-width: 700px !important;
+}
+
+.edit-subtitle {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+.edit-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.edit-form-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+.edit-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: #0A70BA;
+  box-shadow: 0 0 0 4px rgba(10, 112, 186, 0.12);
+}
+
+.edit-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.edit-select:focus {
+  outline: none;
+  border-color: #0A70BA;
+  box-shadow: 0 0 0 4px rgba(10, 112, 186, 0.12);
+}
+
+.save-edit-btn {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #2A499B, #0A70BA);
+  color: white;
+  border: none;
+  border-radius: 40px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 20px rgba(10, 112, 186, 0.30);
+}
+
+.save-edit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(10, 112, 186, 0.40);
+}
+
+.save-edit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Edit & Delete Buttons in Modal */
+.edit-btn-modal {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #EDDB0B, #f6e05e);
+  color: #2A499B;
+  border: none;
+  border-radius: 40px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(237, 219, 11, 0.30);
+}
+
+.edit-btn-modal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(237, 219, 11, 0.40);
+}
+
+.delete-btn-modal {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #fc8181, #f56565);
+  color: white;
+  border: none;
+  border-radius: 40px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(245, 101, 101, 0.30);
+}
+
+.delete-btn-modal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(245, 101, 101, 0.40);
+}
+
+/* Delete Confirmation Modal */
+.delete-confirm-modal {
+  max-width: 450px !important;
+  text-align: center;
+}
+
+.delete-info {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 10px;
+  margin: 16px 0;
+  text-align: left;
+}
+
+.delete-info p {
+  margin: 4px 0;
+  font-size: 0.95rem;
+}
+
+.delete-warning {
+  color: #f56565;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin: 12px 0;
+}
+
+.confirm-delete-btn {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #fc8181, #f56565);
+  color: white;
+  border: none;
+  border-radius: 40px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 20px rgba(245, 101, 101, 0.30);
+}
+
+.confirm-delete-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(245, 101, 101, 0.40);
+}
+
+.confirm-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Success Message in Modal */
+.success-message-modal {
+  background: rgba(198, 246, 213, 0.9);
+  color: #276749;
+  padding: 12px 18px;
+  border-radius: 30px;
+  margin-bottom: 18px;
+  border: 1px solid #68d391;
+  text-align: center;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* Super Admin Tag on Users Table */
+.super-admin-tag {
+  margin-left: 6px;
+  font-size: 0.9rem;
+}
+
+.protected-badge {
+  font-size: 0.7rem;
+  color: #f56565;
+  font-weight: 600;
+  background: rgba(245, 87, 108, 0.1);
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 87, 108, 0.2);
+}
+
+.current-user-badge {
+  font-size: 0.7rem;
+  color: #0A70BA;
+  font-weight: 600;
+  background: rgba(10, 112, 186, 0.1);
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(10, 112, 186, 0.2);
+}
+
+/* User Type Badge - Super Admin */
+.user-type-badge.super-admin {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+}
+
+/* Mobile Responsive for Super Admin */
+@media (max-width: 640px) {
+  .super-admin-badge {
+    font-size: 0.65rem;
+    padding: 4px 12px;
+  }
+  
+  .edit-form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .edit-form-grid .full-width {
+    grid-column: 1;
+  }
+  
+  .super-admin-actions {
+    flex-direction: row;
+    gap: 2px;
+  }
+  
+  .edit-btn-action,
+  .delete-btn-action,
+  .view-btn,
+  .pdf-btn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+  
+  .edit-modal {
+    padding: 16px !important;
+  }
+  
+  .delete-confirm-modal {
+    padding: 16px !important;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+  
+  .edit-btn-modal,
+  .delete-btn-modal,
+  .pdf-btn-modal,
+  .save-edit-btn,
+  .confirm-delete-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

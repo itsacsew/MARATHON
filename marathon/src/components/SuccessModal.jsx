@@ -1,8 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 
 const SuccessModal = ({ isOpen, onClose, registrationData }) => {
   const captureRef = useRef(null);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadImageUrl, setDownloadImageUrl] = useState('');
+  const [downloadFileName, setDownloadFileName] = useState('');
 
   if (!isOpen || !registrationData) return null;
 
@@ -20,13 +23,113 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
     });
   };
 
-  // Generate Image (PNG) - Captures the success details card with perfect fit
+  // ✅ Universal download function - works on all devices including Facebook in-app browser
+  const downloadImage = () => {
+    if (!downloadImageUrl) return;
+
+    // ✅ Check if iPhone or Safari or Facebook in-app
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isFacebook = navigator.userAgent.includes('FBAV') || navigator.userAgent.includes('FBAN');
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    if (isIOS || isSafari || isFacebook) {
+      // For iPhone/Safari/Facebook - use fetch to create a blob
+      fetch(downloadImageUrl)
+        .then(response => response.blob())
+        .then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Create a temporary anchor element
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = downloadFileName;
+          link.style.display = 'none';
+          
+          // Add to document, click, and remove
+          document.body.appendChild(link);
+          link.click();
+          
+          // Clean up
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+          }, 200);
+        })
+        .catch(() => {
+          // Fallback: Open in new tab with instructions
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(`
+              <html>
+                <head><title>Download Image</title></head>
+                <body style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:Arial;background:#f7fafc;margin:0;padding:20px;">
+                  <div style="background:white;border-radius:16px;padding:24px;max-width:500px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,0.1);">
+                    <h2 style="color:#2A499B;text-align:center;margin-top:0;">📥 Download Image</h2>
+                    <img src="${downloadImageUrl}" style="width:100%;height:auto;border-radius:8px;border:2px solid #e2e8f0;" />
+                    <div style="margin-top:16px;text-align:center;">
+                      <p style="color:#4a5568;font-size:14px;">👆 <strong>Long press</strong> the image above</p>
+                      <p style="color:#4a5568;font-size:14px;margin-top:4px;">Select <strong>"Save Image"</strong> to download to your device</p>
+                      <button onclick="window.close()" style="margin-top:16px;padding:12px 32px;background:linear-gradient(135deg,#2A499B,#0A70BA);color:white;border:none;border-radius:40px;font-size:16px;cursor:pointer;font-weight:600;">Close</button>
+                    </div>
+                  </div>
+                  <script>
+                    setTimeout(() => window.close(), 60000);
+                  <\/script>
+                </body>
+              </html>
+            `);
+            newWindow.document.title = downloadFileName;
+          } else {
+            // Last resort: show alert with instructions
+            alert('📸 Please allow pop-ups.\n\nLong press the image that appears and select "Save Image" to download.');
+            // Open image in current window
+            const img = document.createElement('img');
+            img.src = downloadImageUrl;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '80vh';
+            img.style.display = 'block';
+            img.style.margin = '0 auto';
+            document.body.innerHTML = '';
+            document.body.appendChild(img);
+          }
+        });
+    } else {
+      // Standard download for other browsers
+      const link = document.createElement('a');
+      link.download = downloadFileName;
+      link.href = downloadImageUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    // Close the download modal after a moment
+    setTimeout(() => {
+      setShowDownloadModal(false);
+      setDownloadImageUrl('');
+      setDownloadFileName('');
+    }, 1000);
+  };
+
+  // Close download modal without downloading
+  const closeDownloadModal = () => {
+    setShowDownloadModal(false);
+    setDownloadImageUrl('');
+    setDownloadFileName('');
+  };
+
+  // Generate Image (PNG) - Shows download modal instead of direct download
   const generateImage = async () => {
     const element = captureRef.current;
     if (!element) return;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // ✅ Force reflow to ensure proper rendering
+      const forceReflow = element.offsetHeight;
+      // eslint-disable-next-line no-unused-expressions
+      forceReflow;
 
       // Get the actual dimensions of the content
       const rect = element.getBoundingClientRect();
@@ -41,12 +144,10 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
         allowTaint: true,
         width: width,
         height: height,
-        // This ensures the content fits perfectly
         windowWidth: width,
         windowHeight: height,
-        onclone: (document) => {
-          // Ensure the element is fully rendered
-          const clonedElement = document.getElementById('capture-content');
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('capture-content');
           if (clonedElement) {
             clonedElement.style.width = width + 'px';
             clonedElement.style.height = 'auto';
@@ -54,11 +155,14 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
         }
       });
 
-      // Create download link
-      const link = document.createElement('a');
-      link.download = `registration-${registrationData.referenceNumber || 'confirmation'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const imageData = canvas.toDataURL('image/png');
+      const fileName = `registration-${registrationData.referenceNumber || 'confirmation'}.png`;
+      
+      // ✅ Show download modal with the image
+      setDownloadImageUrl(imageData);
+      setDownloadFileName(fileName);
+      setShowDownloadModal(true);
+
     } catch (error) {
       console.error('Error generating image:', error);
       alert('Failed to generate image. Please try again.');
@@ -141,7 +245,7 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           </div>
 
           {/* ============================================================ */}
-          {/* SUCCESS MODAL UI - Display Details (KEEP EXISTING) */}
+          {/* SUCCESS MODAL UI - Display Details */}
           {/* ============================================================ */}
           <div className="success-details">
             <div className="detail-card">
@@ -190,6 +294,37 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           </div>
         </div>
       </div>
+
+      {/* ============================================================ */}
+      {/* DOWNLOAD MODAL - Shows image preview with download button */}
+      {/* ============================================================ */}
+      {showDownloadModal && downloadImageUrl && (
+        <div className="download-modal-overlay" onClick={closeDownloadModal}>
+          <div className="download-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="download-modal-close" onClick={closeDownloadModal}>×</button>
+            <h3 className="download-modal-title">📥 Download Registration</h3>
+            <p className="download-modal-subtitle">Preview your image before downloading</p>
+            
+            <div className="download-modal-image-container">
+              <img src={downloadImageUrl} alt="Registration" className="download-modal-image" />
+            </div>
+            
+            <div className="download-modal-actions">
+              <button className="download-modal-download-btn" onClick={downloadImage}>
+                <span className="download-icon">⬇️</span>
+                Download Now
+              </button>
+              <button className="download-modal-close-btn" onClick={closeDownloadModal}>
+                Cancel
+              </button>
+            </div>
+            
+            <p className="download-modal-hint">
+              💡 If download doesn't start automatically, long press the image and select "Save Image"
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* CSS Styles */}
       <style>{`
@@ -341,6 +476,173 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
         }
 
         /* ============================================================ */
+        /* DOWNLOAD MODAL STYLES */
+        /* ============================================================ */
+        .download-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.8);
+          backdrop-filter: blur(10px);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 9999;
+          padding: 20px;
+          animation: fadeIn 0.3s ease;
+        }
+
+        .download-modal-content {
+          background: white;
+          border-radius: 28px;
+          max-width: 520px;
+          width: 100%;
+          max-height: 90vh;
+          padding: 32px 28px;
+          position: relative;
+          box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+          animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          overflow-y: auto;
+        }
+
+        .download-modal-close {
+          position: absolute;
+          top: 12px;
+          right: 16px;
+          background: none;
+          border: none;
+          font-size: 2rem;
+          cursor: pointer;
+          color: #4a5568;
+          transition: all 0.3s ease;
+          padding: 4px 12px;
+          border-radius: 8px;
+          z-index: 10;
+        }
+
+        .download-modal-close:hover {
+          background: rgba(0,0,0,0.05);
+          transform: rotate(90deg);
+        }
+
+        .download-modal-title {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #2A499B;
+          margin: 0 0 4px 0;
+          text-align: center;
+        }
+
+        .download-modal-subtitle {
+          font-size: 0.9rem;
+          color: #718096;
+          text-align: center;
+          margin: 0 0 16px 0;
+        }
+
+        .download-modal-image-container {
+          background: #f7fafc;
+          border-radius: 16px;
+          padding: 12px;
+          margin-bottom: 16px;
+          border: 2px solid #e2e8f0;
+          max-height: 400px;
+          overflow: auto;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        .download-modal-image {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .download-modal-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .download-modal-download-btn {
+          flex: 2;
+          padding: 14px 20px;
+          background: linear-gradient(135deg, #68B42D, #48a71a);
+          color: white;
+          border: none;
+          border-radius: 40px;
+          font-weight: 700;
+          font-size: 0.95rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 6px 20px rgba(104, 180, 45, 0.30);
+        }
+
+        .download-modal-download-btn:hover {
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 0 10px 30px rgba(104, 180, 45, 0.40);
+        }
+
+        .download-modal-download-btn:active {
+          transform: scale(0.98);
+        }
+
+        .download-icon {
+          font-size: 1.2rem;
+        }
+
+        .download-modal-close-btn {
+          flex: 1;
+          padding: 14px 20px;
+          background: rgba(237, 242, 247, 0.9);
+          color: #4a5568;
+          border: 2px solid #e2e8f0;
+          border-radius: 40px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .download-modal-close-btn:hover {
+          background: #e2e8f0;
+          transform: translateY(-2px);
+        }
+
+        .download-modal-hint {
+          font-size: 0.75rem;
+          color: #a0aec0;
+          text-align: center;
+          margin: 12px 0 0 0;
+          padding: 8px;
+          background: #f7fafc;
+          border-radius: 8px;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: scale(0.8) translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        /* ============================================================ */
         /* CAPTURE STYLES - For image generation */
         /* ============================================================ */
         .capture-content {
@@ -463,6 +765,14 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           font-weight: 400 !important;
         }
 
+        /* ✅ iPhone/Safari specific fixes */
+        @supports (-webkit-touch-callout: none) {
+          .capture-content {
+            width: 500px !important;
+            max-width: 500px !important;
+          }
+        }
+
         /* Mobile Responsive */
         @media (max-width: 480px) {
           .success-modal {
@@ -507,6 +817,25 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
 
           .success-subtitle {
             font-size: 0.85rem;
+          }
+
+          .download-modal-content {
+            padding: 24px 16px !important;
+            margin: 8px !important;
+            border-radius: 20px !important;
+          }
+
+          .download-modal-actions {
+            flex-direction: column;
+          }
+
+          .download-modal-download-btn,
+          .download-modal-close-btn {
+            width: 100%;
+          }
+
+          .download-modal-title {
+            font-size: 1.2rem;
           }
 
           /* Capture content responsive */
@@ -589,6 +918,19 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           .capture-row {
             padding: 4px 0 !important;
           }
+
+          .download-modal-content {
+            padding: 20px 12px !important;
+            border-radius: 20px !important;
+          }
+
+          .download-modal-title {
+            font-size: 1.1rem !important;
+          }
+
+          .download-modal-image-container {
+            max-height: 300px !important;
+          }
         }
 
         /* Medium screens (481px - 768px) */
@@ -621,6 +963,27 @@ const SuccessModal = ({ isOpen, onClose, registrationData }) => {
           .capture-content {
             width: 500px !important;
             max-width: 500px !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .download-modal-content {
+            padding: 24px 16px !important;
+            margin: 8px !important;
+            border-radius: 20px !important;
+          }
+
+          .download-modal-actions {
+            flex-direction: column !important;
+          }
+
+          .download-modal-download-btn,
+          .download-modal-close-btn {
+            width: 100% !important;
+          }
+
+          .download-modal-title {
+            font-size: 1.2rem !important;
           }
         }
       `}</style>

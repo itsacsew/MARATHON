@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import * as XLSX from 'xlsx';
 
-const AdminDashboard = () => {
-  const { userData, logout, getAllUsers, getAllRegistrations } = useAuth();
+const SuperAdminDashboard = () => {
+  const { userData, logout, getAllUsers, getAllRegistrations, deleteRegistration, deleteUser, updateRegistration } = useAuth();
   const [registrations, setRegistrations] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,12 +23,42 @@ const AdminDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [receiptImages, setReceiptImages] = useState([]);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [receiptImageUrl, setReceiptImageUrl] = useState('');
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateNames, setDuplicateNames] = useState([]);
   const [hasDuplicates, setHasDuplicates] = useState(false);
+  
+  // ✅ NEW STATE FOR EDIT MODAL
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRegistration, setEditingRegistration] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    userName: '',
+    userEmail: '',
+    gender: '',
+    category: '',
+    categoryId: '',
+    eventName: '',
+    distance: '',
+    shirtSize: '',
+    fee: '',
+    paymentMethod: '',
+    status: '',
+    referenceNumber: ''
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
+
+  // ✅ NEW STATE FOR DELETE CONFIRMATION
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteType, setDeleteType] = useState(''); // 'registration' or 'user'
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const navigate = useNavigate();
+
+  // Check if user is Super Admin
+  const isSuperAdmin = userData?.isSuperAdmin === true;
 
   const fetchAllData = useCallback(async () => {
     try {
@@ -70,10 +100,13 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    if (userData?.isAdmin) {
+    if (userData?.isSuperAdmin) {
       fetchAllData();
+    } else if (userData?.isAdmin) {
+      // If regular admin tries to access super admin, redirect
+      navigate('/admin');
     }
-  }, [userData, fetchAllData]);
+  }, [userData, fetchAllData, navigate]);
 
   const handleLogout = async () => {
     try {
@@ -104,93 +137,144 @@ const AdminDashboard = () => {
     setPdfRegistration(null);
   };
 
-  // ✅ Get receipt images from registration (supports multiple formats)
-  const getReceiptImages = (registration) => {
-    if (!registration) return [];
-    
-    // Check for receiptPreviews array (from Dashboard.jsx)
-    if (registration.receiptPreviews && Array.isArray(registration.receiptPreviews) && registration.receiptPreviews.length > 0) {
-      return registration.receiptPreviews.filter(img => img);
-    }
-    
-    // Check for receiptUrls array
-    if (registration.receiptUrls && Array.isArray(registration.receiptUrls)) {
-      return registration.receiptUrls.filter(img => img);
-    }
-    
-    // Check for receiptImages array
-    if (registration.receiptImages && Array.isArray(registration.receiptImages)) {
-      return registration.receiptImages.filter(img => img);
-    }
-    
-    // Check for receipts object (Firestore map)
-    if (registration.receipts && typeof registration.receipts === 'object') {
-      return Object.values(registration.receipts).filter(img => img);
-    }
-    
-    // Check for receiptPreview (single image)
-    if (registration.receiptPreview && typeof registration.receiptPreview === 'string') {
-      return [registration.receiptPreview];
-    }
-    
-    // Check for receiptUrl (single image)
-    if (registration.receiptUrl && typeof registration.receiptUrl === 'string') {
-      return [registration.receiptUrl];
-    }
-    
-    // Check for receiptFileName (might be a string)
-    if (registration.receiptFileName && typeof registration.receiptFileName === 'string') {
-      return [registration.receiptFileName];
-    }
-    
-    return [];
-  };
-
-  // ✅ Handle receipt click for multiple images - SAME AS SUCCESSMODAL
-  const handleReceiptClick = (images) => {
-    let imageArray = [];
-    if (Array.isArray(images)) {
-      imageArray = images.filter(img => img);
-    } else if (typeof images === 'string') {
-      imageArray = [images];
-    } else if (images && typeof images === 'object') {
-      imageArray = Object.values(images).filter(img => img);
-    }
-    
-    if (imageArray.length === 0 && selectedRegistration) {
-      imageArray = getReceiptImages(selectedRegistration);
-    }
-    
-    if (imageArray.length === 0 && selectedRegistration?.receiptPreview) {
-      imageArray = [selectedRegistration.receiptPreview];
-    }
-    
-    if (imageArray.length === 0) {
-      alert('No receipt image found.');
-      return;
-    }
-    
-    setReceiptImages(imageArray);
-    setCurrentImageIndex(0);
+  const handleReceiptClick = (imageUrl) => {
+    setReceiptImageUrl(imageUrl);
     setShowReceiptModal(true);
   };
 
   const handleCloseReceiptModal = () => {
     setShowReceiptModal(false);
-    setReceiptImages([]);
-    setCurrentImageIndex(0);
+    setReceiptImageUrl('');
   };
 
-  const handlePreviousImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === 0 ? receiptImages.length - 1 : prev - 1
-    );
+  // ✅ NEW: Handle Edit
+  const handleEditClick = (registration) => {
+    setEditingRegistration(registration);
+    setEditFormData({
+      userName: registration.userName || '',
+      userEmail: registration.userEmail || '',
+      gender: registration.gender || '',
+      category: registration.category || '',
+      categoryId: registration.categoryId || '',
+      eventName: registration.eventName || '',
+      distance: registration.distance || '',
+      shirtSize: registration.shirtSize || '',
+      fee: registration.fee || '',
+      paymentMethod: registration.paymentMethod || '',
+      status: registration.status || '',
+      referenceNumber: registration.referenceNumber || ''
+    });
+    setEditError('');
+    setEditSuccess('');
+    setShowEditModal(true);
   };
 
-  const handleNextImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === receiptImages.length - 1 ? 0 : prev + 1
-    );
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditLoading(true);
+    setEditError('');
+    setEditSuccess('');
+
+    try {
+      // Validate required fields
+      if (!editFormData.userName.trim()) {
+        setEditError('Name is required');
+        setEditLoading(false);
+        return;
+      }
+
+      if (!editFormData.userEmail.trim()) {
+        setEditError('Email is required');
+        setEditLoading(false);
+        return;
+      }
+
+      const updateData = {
+        userName: editFormData.userName.trim(),
+        userEmail: editFormData.userEmail.trim(),
+        gender: editFormData.gender,
+        category: editFormData.category,
+        categoryId: editFormData.categoryId,
+        eventName: editFormData.eventName,
+        distance: editFormData.distance,
+        shirtSize: editFormData.shirtSize,
+        fee: parseFloat(editFormData.fee) || 0,
+        paymentMethod: editFormData.paymentMethod,
+        status: editFormData.status,
+        referenceNumber: editFormData.referenceNumber
+      };
+
+      await updateRegistration(
+        editingRegistration.userId,
+        editingRegistration.id,
+        updateData
+      );
+
+      setEditSuccess('✅ Registration updated successfully!');
+      
+      // Refresh data
+      await fetchAllData();
+      
+      // Close modal after delay
+      setTimeout(() => {
+        setShowEditModal(false);
+        setEditingRegistration(null);
+        setEditSuccess('');
+      }, 1500);
+
+    } catch (error) {
+      console.error('Error updating registration:', error);
+      setEditError('Failed to update registration: ' + error.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // ✅ NEW: Handle Delete Registration
+  const handleDeleteRegistration = (registration) => {
+    setDeleteTarget(registration);
+    setDeleteType('registration');
+    setShowDeleteModal(true);
+  };
+
+  // ✅ NEW: Handle Delete User
+  const handleDeleteUser = (user) => {
+    setDeleteTarget(user);
+    setDeleteType('user');
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    setDeleteLoading(true);
+    try {
+      if (deleteType === 'registration' && deleteTarget) {
+        await deleteRegistration(deleteTarget.userId, deleteTarget.id);
+        await fetchAllData();
+        setShowDeleteModal(false);
+        setDeleteTarget(null);
+        // Show success message
+        alert('✅ Registration deleted successfully!');
+      } else if (deleteType === 'user' && deleteTarget) {
+        await deleteUser(deleteTarget.uid);
+        await fetchAllData();
+        setShowDeleteModal(false);
+        setDeleteTarget(null);
+        alert('✅ User deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Error deleting:', error);
+      alert('❌ Failed to delete: ' + error.message);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleDetectClones = () => {
@@ -248,6 +332,19 @@ const AdminDashboard = () => {
     });
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-PH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   const handleDownloadExcel = () => {
     if (registrations.length === 0) {
       alert('No registrations to export!');
@@ -279,7 +376,6 @@ const AdminDashboard = () => {
       'REFERENCE #',
       'NAME',
       'EMAIL',
-      'ADDRESS',
       'GENDER',
       'TSHIRT SIZE',
       'EVENT',
@@ -312,7 +408,6 @@ const AdminDashboard = () => {
           reg.referenceNumber || 'N/A',
           reg.userName || 'N/A',
           reg.userEmail || 'N/A',
-          reg.homeAddress || 'N/A',
           reg.gender || 'N/A',
           reg.shirtSize || 'N/A',
           reg.eventName || 'N/A',
@@ -365,7 +460,6 @@ const AdminDashboard = () => {
       { wch: 20 },
       { wch: 30 },
       { wch: 35 },
-      { wch: 40 },
       { wch: 12 },
       { wch: 12 },
       { wch: 25 },
@@ -456,8 +550,7 @@ const AdminDashboard = () => {
         reg.eventName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         reg.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         reg.referenceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        reg.shirtSize?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        reg.homeAddress?.toLowerCase().includes(searchTerm.toLowerCase());
+        reg.shirtSize?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesCategory = filterCategory === 'all' || reg.categoryId === filterCategory;
       const matchesGender = filterGender === 'all' || reg.gender === filterGender;
@@ -539,19 +632,6 @@ const AdminDashboard = () => {
   const genders = [...new Set(registrations.map(reg => reg.gender))];
   const uniqueDates = getUniqueDates();
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-PH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
   const getGenderLabel = (gender) => {
     if (gender === 'Male') return '👨 Male';
     if (gender === 'Female') return '👩 Female';
@@ -593,6 +673,16 @@ const AdminDashboard = () => {
       <div className="loading-screen">
         <div className="spinner"></div>
         <p>Loading data...</p>
+      </div>
+    );
+  }
+
+  // Redirect if not super admin
+  if (!isSuperAdmin) {
+    return (
+      <div className="loading-screen">
+        <p>⛔ Access Denied. Super Admin only.</p>
+        <button onClick={handleLogout} className="logout-btn">Go Back</button>
       </div>
     );
   }
@@ -652,14 +742,15 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="admin-dashboard">
+    <div className="admin-dashboard super-admin-dashboard">
       <div className="admin-dashboard-inner">
-        <header className="admin-header">
+        <header className="admin-header super-admin-header">
           <div className="admin-header-left">
-            <h1>📊 Admin Dashboard</h1>
+            <h1>👑 Super Dashboard</h1>
             <span className="registration-count">
-              Total Users: {users.length} | Registrations: {registrations.length}
+              👥 Users: {users.length} | 📝 Registrations: {registrations.length}
             </span>
+            <span className="super-admin-badge">⭐</span>
           </div>
           <div className="admin-header-right">
             <button 
@@ -763,7 +854,7 @@ const AdminDashboard = () => {
             <div className="search-box">
               <input
                 type="text"
-                placeholder={activeTab === 'registrations' ? "Search by name, email, address, event, reference #, shirt size..." : "Search users..."}
+                placeholder={activeTab === 'registrations' ? "Search by name, email, event, reference #, shirt size..." : "Search users..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -842,7 +933,6 @@ const AdminDashboard = () => {
                       <th>#</th>
                       <th>Name</th>
                       <th>Email</th>
-                      <th>Address</th>
                       <th>Gender</th>
                       <th>Category</th>
                       <th>Event</th>
@@ -866,7 +956,7 @@ const AdminDashboard = () => {
                   <tbody>
                     {currentPageData.length === 0 ? (
                       <tr>
-                        <td colSpan="15" className="no-data">
+                        <td colSpan="14" className="no-data">
                           No registrations found
                         </td>
                       </tr>
@@ -878,7 +968,6 @@ const AdminDashboard = () => {
                             <td>{realIndex}</td>
                             <td className="name-cell">{reg.userName || 'N/A'}</td>
                             <td className="email-cell">{reg.userEmail || 'N/A'}</td>
-                            <td className="address-cell">{reg.homeAddress || 'N/A'}</td>
                             <td>
                               <span className={`gender-badge ${reg.gender}`}>
                                 {reg.gender === 'Male' ? '👨 Male' : reg.gender === 'Female' ? '👩 Female' : 'N/A'}
@@ -920,7 +1009,7 @@ const AdminDashboard = () => {
                               {reg.registeredAt ? formatDisplayDate(reg.registeredAt) : 'N/A'}
                             </td>
                             <td>
-                              <div className="action-buttons">
+                              <div className="action-buttons super-admin-actions">
                                 <button 
                                   className="view-btn"
                                   onClick={() => handleViewDetails(reg)}
@@ -934,6 +1023,20 @@ const AdminDashboard = () => {
                                   title="Download PDF"
                                 >
                                   📄
+                                </button>
+                                <button 
+                                  className="edit-btn-action"
+                                  onClick={() => handleEditClick(reg)}
+                                  title="Edit Registration"
+                                >
+                                  ✏️
+                                </button>
+                                <button 
+                                  className="delete-btn-action"
+                                  onClick={() => handleDeleteRegistration(reg)}
+                                  title="Delete Registration"
+                                >
+                                  🗑️
                                 </button>
                               </div>
                             </td>
@@ -955,12 +1058,13 @@ const AdminDashboard = () => {
                       <th>Type</th>
                       <th>Registrations</th>
                       <th>Joined Date</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentPageData.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="no-data">
+                        <td colSpan="7" className="no-data">
                           No users found
                         </td>
                       </tr>
@@ -968,19 +1072,43 @@ const AdminDashboard = () => {
                       currentPageData.map((user, index) => {
                         const realIndex = ((currentPage - 1) * rowsPerPage) + index + 1;
                         const userRegCount = registrations.filter(r => r.userId === user.uid).length;
+                        const isSuperAdmin = user.isSuperAdmin === true;
+                        const isCurrentUser = user.uid === userData?.uid;
                         return (
                           <tr key={user.uid || index}>
                             <td>{realIndex}</td>
-                            <td className="name-cell">{user.displayName || 'N/A'}</td>
+                            <td className="name-cell">
+                              {user.displayName || 'N/A'}
+                              {isSuperAdmin && <span className="super-admin-tag">⭐</span>}
+                            </td>
                             <td className="email-cell">{user.email || 'N/A'}</td>
                             <td>
-                              <span className={`user-type-badge ${user.isAdmin ? 'admin' : 'user'}`}>
-                                {user.isAdmin ? '👑 Admin' : '👤 User'}
+                              <span className={`user-type-badge ${isSuperAdmin ? 'super-admin' : user.isAdmin ? 'admin' : 'user'}`}>
+                                {isSuperAdmin ? '👑 Super Admin' : user.isAdmin ? '👤 Admin' : '👤 User'}
                               </span>
                             </td>
                             <td>{userRegCount}</td>
                             <td className="date-cell">
                               {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td>
+                              <div className="action-buttons super-admin-actions">
+                                {!isCurrentUser && !isSuperAdmin && (
+                                  <button 
+                                    className="delete-btn-action"
+                                    onClick={() => handleDeleteUser(user)}
+                                    title="Delete User"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                                {isSuperAdmin && (
+                                  <span className="protected-badge">🔒 Protected</span>
+                                )}
+                                {isCurrentUser && (
+                                  <span className="current-user-badge">You</span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1015,10 +1143,6 @@ const AdminDashboard = () => {
               <div className="detail-item">
                 <label>Email</label>
                 <span>{selectedRegistration.userEmail || 'N/A'}</span>
-              </div>
-              <div className="detail-item">
-                <label>Address</label>
-                <span>{selectedRegistration.homeAddress || 'N/A'}</span>
               </div>
               <div className="detail-item">
                 <label>Gender</label>
@@ -1078,150 +1202,24 @@ const AdminDashboard = () => {
                 <label>Receipt File</label>
                 <span className="small-text">{selectedRegistration.receiptFileName || 'N/A'}</span>
               </div>
-              
-              {/* ✅ RECEIPT PREVIEW SECTION - SAME LAYOUT AS SUCCESSMODAL */}
               <div className="detail-item full-width">
                 <label>Receipt Preview</label>
-                {(() => {
-                  const images = getReceiptImages(selectedRegistration);
-                  
-                  if (images.length === 0) {
-                    return <span>No receipt uploaded</span>;
-                  }
-                  
-                  // ✅ SINGLE IMAGE - SAME AS SUCCESSMODAL
-                  if (images.length === 1) {
-                    return (
-                      <div 
-                        className="receipt-preview-container"
-                        onClick={() => handleReceiptClick(images)}
-                        style={{
-                          cursor: 'pointer',
-                          border: '2px solid #e2e8f0',
-                          borderRadius: '12px',
-                          padding: '8px',
-                          transition: 'all 0.3s ease',
-                          background: '#f7fafc',
-                          display: 'inline-block',
-                          maxWidth: '300px',
-                          width: '100%'
-                        }}
-                      >
-                        <img 
-                          src={images[0]} 
-                          alt="Receipt" 
-                          className="receipt-preview"
-                          style={{
-                            width: '100%',
-                            height: 'auto',
-                            maxHeight: '150px',
-                            objectFit: 'contain',
-                            borderRadius: '8px'
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const parent = e.target.parentElement;
-                            parent.innerHTML = `
-                              <div style="padding: 20px; text-align: center; color: #e53e3e; background: #fed7d7; border-radius: 8px; font-size: 14px;">
-                                ⚠️ Image not found or invalid URL
-                              </div>
-                            `;
-                          }}
-                        />
-                        <div className="receipt-click-hint" style={{
-                          textAlign: 'center',
-                          fontSize: '0.7rem',
-                          color: '#718096',
-                          marginTop: '6px',
-                          fontWeight: 500
-                        }}>
-                          🔍 Click to enlarge
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  // ✅ MULTIPLE IMAGES - SAME GRID AS SUCCESSMODAL
-                  return (
-                    <div className="receipt-grid-container">
-                      <div className="receipt-grid" style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                        gap: '12px',
-                        width: '100%'
-                      }}>
-                        {images.slice(0, 4).map((img, idx) => (
-                          <div 
-                            key={idx} 
-                            className="receipt-grid-item"
-                            onClick={() => handleReceiptClick(images)}
-                            style={{
-                              cursor: 'pointer',
-                              border: '2px solid #e2e8f0',
-                              borderRadius: '12px',
-                              padding: '8px',
-                              transition: 'all 0.3s ease',
-                              background: '#f7fafc',
-                              position: 'relative',
-                              overflow: 'hidden'
-                            }}
-                          >
-                            <img 
-                              src={img} 
-                              alt={`Receipt ${idx + 1}`} 
-                              className="receipt-grid-image"
-                              style={{
-                                width: '100%',
-                                height: 'auto',
-                                maxHeight: '100px',
-                                objectFit: 'contain',
-                                borderRadius: '8px'
-                              }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                const parent = e.target.parentElement;
-                                const errorDiv = document.createElement('div');
-                                errorDiv.style.cssText = 'padding: 20px 10px; text-align: center; color: #e53e3e; background: #fed7d7; border-radius: 8px; font-size: 12px;';
-                                errorDiv.textContent = '⚠️ Image not found';
-                                parent.appendChild(errorDiv);
-                              }}
-                            />
-                            {idx === 3 && images.length > 4 && (
-                              <div className="receipt-grid-overlay" style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                background: 'rgba(0,0,0,0.6)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '18px',
-                                fontWeight: 'bold',
-                                borderRadius: '10px'
-                              }}>
-                                +{images.length - 4}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="receipt-grid-hint" style={{
-                        textAlign: 'center',
-                        fontSize: '0.8rem',
-                        color: '#718096',
-                        marginTop: '8px',
-                        fontWeight: 500
-                      }}>
-                        📸 {images.length} image(s) • Click to view all
-                      </div>
-                    </div>
-                  );
-                })()}
+                {selectedRegistration.receiptPreview ? (
+                  <div 
+                    className="receipt-preview-container"
+                    onClick={() => handleReceiptClick(selectedRegistration.receiptPreview)}
+                  >
+                    <img 
+                      src={selectedRegistration.receiptPreview} 
+                      alt="Receipt" 
+                      className="receipt-preview"
+                    />
+                    <div className="receipt-click-hint">🔍 Click to enlarge</div>
+                  </div>
+                ) : (
+                  <span>No receipt uploaded</span>
+                )}
               </div>
-              
               <div className="detail-item">
                 <label>Status</label>
                 <span className={`status-badge ${selectedRegistration.status}`}>
@@ -1253,6 +1251,24 @@ const AdminDashboard = () => {
               >
                 📄 Download PDF
               </button>
+              <button 
+                className="edit-btn-modal"
+                onClick={() => {
+                  handleCloseModal();
+                  handleEditClick(selectedRegistration);
+                }}
+              >
+                ✏️ Edit
+              </button>
+              <button 
+                className="delete-btn-modal"
+                onClick={() => {
+                  handleCloseModal();
+                  handleDeleteRegistration(selectedRegistration);
+                }}
+              >
+                🗑️ Delete
+              </button>
               <button className="modal-close-btn" onClick={handleCloseModal}>
                 Close
               </button>
@@ -1261,185 +1277,20 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ✅ RECEIPT MODAL - SAME AS SUCCESSMODAL */}
-      {showReceiptModal && receiptImages.length > 0 && (
+      {/* Receipt Modal */}
+      {showReceiptModal && receiptImageUrl && (
         <div className="modal-overlay receipt-modal-overlay" onClick={handleCloseReceiptModal}>
-          <div className="modal-content receipt-modal-content" onClick={(e) => e.stopPropagation()} style={{
-            background: 'white',
-            borderRadius: '28px',
-            maxWidth: '700px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflow: 'auto',
-            padding: '32px',
-            position: 'relative',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.4)',
-            animation: 'slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          }}>
-            <button className="modal-close" onClick={handleCloseReceiptModal} style={{
-              position: 'absolute',
-              top: '16px',
-              right: '20px',
-              background: 'none',
-              border: 'none',
-              fontSize: '2rem',
-              cursor: 'pointer',
-              color: '#4a5568',
-              transition: 'all 0.3s ease',
-              padding: '4px 12px',
-              borderRadius: '8px',
-              zIndex: 10
-            }}>×</button>
-            
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              color: '#2A499B',
-              margin: '0 0 16px 0',
-              textAlign: 'center'
-            }}>
-              📷 Receipt Preview 
-              {receiptImages.length > 1 && (
-                <span style={{
-                  fontSize: '0.9rem',
-                  color: '#718096',
-                  fontWeight: 500
-                }}>
-                  ({currentImageIndex + 1} of {receiptImages.length})
-                </span>
-              )}
-            </h2>
-            
-            <div className="receipt-full-container" style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '16px 0',
-              position: 'relative'
-            }}>
-              {receiptImages.length > 1 && (
-                <button 
-                  className="receipt-nav-btn receipt-nav-prev"
-                  onClick={handlePreviousImage}
-                  style={{
-                    position: 'absolute',
-                    left: '4px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'rgba(0,0,0,0.5)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '44px',
-                    height: '44px',
-                    fontSize: '1.5rem',
-                    cursor: 'pointer',
-                    zIndex: 5,
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  ❮
-                </button>
-              )}
-              
+          <div className="modal-content receipt-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={handleCloseReceiptModal}>×</button>
+            <h2>📷 Receipt Preview</h2>
+            <div className="receipt-full-container">
               <img 
-                src={receiptImages[currentImageIndex]} 
-                alt={`Receipt ${currentImageIndex + 1}`} 
+                src={receiptImageUrl} 
+                alt="Receipt Full View" 
                 className="receipt-full-image"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '70vh',
-                  objectFit: 'contain',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.1)'
-                }}
-                onError={(e) => {
-                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZWVlIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjOTk5Ij5JbWFnZSBub3QgZm91bmQ8L3RleHQ+PC9zdmc+';
-                  e.target.style.maxHeight = '300px';
-                  e.target.style.width = 'auto';
-                }}
               />
-              
-              {receiptImages.length > 1 && (
-                <button 
-                  className="receipt-nav-btn receipt-nav-next"
-                  onClick={handleNextImage}
-                  style={{
-                    position: 'absolute',
-                    right: '4px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'rgba(0,0,0,0.5)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '44px',
-                    height: '44px',
-                    fontSize: '1.5rem',
-                    cursor: 'pointer',
-                    zIndex: 5,
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  ❯
-                </button>
-              )}
             </div>
-            
-            {receiptImages.length > 1 && (
-              <div className="receipt-thumbnails" style={{
-                display: 'flex',
-                gap: '8px',
-                justifyContent: 'center',
-                marginTop: '12px',
-                flexWrap: 'wrap'
-              }}>
-                {receiptImages.map((img, idx) => (
-                  <div 
-                    key={idx}
-                    className={`receipt-thumbnail ${idx === currentImageIndex ? 'active' : ''}`}
-                    onClick={() => setCurrentImageIndex(idx)}
-                    style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      border: idx === currentImageIndex ? '3px solid #0A70BA' : '2px solid #e2e8f0',
-                      transition: 'all 0.3s ease',
-                      opacity: idx === currentImageIndex ? 1 : 0.6
-                    }}
-                  >
-                    <img 
-                      src={img} 
-                      alt={`Thumbnail ${idx + 1}`}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            <button className="modal-close-btn" onClick={handleCloseReceiptModal} style={{
-              width: '100%',
-              padding: '14px',
-              background: 'rgba(237, 242, 247, 0.9)',
-              color: '#4a5568',
-              border: '2px solid #e2e8f0',
-              borderRadius: '40px',
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              marginTop: '16px'
-            }}>
+            <button className="modal-close-btn" onClick={handleCloseReceiptModal}>
               Close
             </button>
           </div>
@@ -1465,10 +1316,6 @@ const AdminDashboard = () => {
                 <div className="pdf-preview-row">
                   <span className="pdf-preview-label">Name:</span>
                   <span className="pdf-preview-value">{pdfRegistration.userName || 'N/A'}</span>
-                </div>
-                <div className="pdf-preview-row">
-                  <span className="pdf-preview-label">Address:</span>
-                  <span className="pdf-preview-value">{pdfRegistration.homeAddress || 'N/A'}</span>
                 </div>
                 <div className="pdf-preview-row">
                   <span className="pdf-preview-label">Gender:</span>
@@ -1569,7 +1416,6 @@ const AdminDashboard = () => {
                       <div key={regIdx} className="duplicate-reg-item">
                         <span className="reg-index">#{regIdx + 1}</span>
                         <span className="reg-detail">📧 {reg.userEmail || 'N/A'}</span>
-                        <span className="reg-detail">📍 {reg.homeAddress || 'N/A'}</span>
                         <span className="reg-detail">🏷️ {reg.category || 'N/A'}</span>
                         <span className="reg-detail">📏 {reg.distance || 'N/A'}</span>
                         <span className="reg-detail">👕 {reg.shirtSize || 'N/A'}</span>
@@ -1606,8 +1452,238 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* ✅ EDIT MODAL */}
+      {showEditModal && editingRegistration && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content edit-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
+            <h2>✏️ Edit Registration</h2>
+            <p className="edit-subtitle">Editing registration for <strong>{editingRegistration.userName}</strong></p>
+            
+            {editError && <div className="error-message-modal">{editError}</div>}
+            {editSuccess && <div className="success-message-modal">{editSuccess}</div>}
+            
+            <form onSubmit={handleEditSubmit}>
+              <div className="edit-form-grid">
+                <div className="form-group">
+                  <label>Full Name *</label>
+                  <input
+                    type="text"
+                    name="userName"
+                    value={editFormData.userName}
+                    onChange={handleEditInputChange}
+                    className="edit-input"
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input
+                    type="email"
+                    name="userEmail"
+                    value={editFormData.userEmail}
+                    onChange={handleEditInputChange}
+                    className="edit-input"
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Gender</label>
+                  <select
+                    name="gender"
+                    value={editFormData.gender}
+                    onChange={handleEditInputChange}
+                    className="edit-select"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Shirt Size</label>
+                  <select
+                    name="shirtSize"
+                    value={editFormData.shirtSize}
+                    onChange={handleEditInputChange}
+                    className="edit-select"
+                  >
+                    <option value="">Select Size</option>
+                    <option value="S">S</option>
+                    <option value="M">M</option>
+                    <option value="L">L</option>
+                    <option value="XL">XL</option>
+                    <option value="XXL">XXL</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Category</label>
+                  <select
+                    name="categoryId"
+                    value={editFormData.categoryId}
+                    onChange={handleEditInputChange}
+                    className="edit-select"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="open">Open Category</option>
+                    <option value="masters">40 Upper's/Master's</option>
+                    <option value="liloan">Liloan Only</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Distance</label>
+                  <input
+                    type="text"
+                    name="distance"
+                    value={editFormData.distance}
+                    onChange={handleEditInputChange}
+                    className="edit-input"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Fee (₱)</label>
+                  <input
+                    type="number"
+                    name="fee"
+                    value={editFormData.fee}
+                    onChange={handleEditInputChange}
+                    className="edit-input"
+                    step="0.01"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Payment Method</label>
+                  <select
+                    name="paymentMethod"
+                    value={editFormData.paymentMethod}
+                    onChange={handleEditInputChange}
+                    className="edit-select"
+                  >
+                    <option value="">Select Payment</option>
+                    <option value="landbank">Landbank</option>
+                    <option value="maya">Maya</option>
+                    <option value="gcash">GCash</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    name="status"
+                    value={editFormData.status}
+                    onChange={handleEditInputChange}
+                    className="edit-select"
+                  >
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Reference Number</label>
+                  <input
+                    type="text"
+                    name="referenceNumber"
+                    value={editFormData.referenceNumber}
+                    onChange={handleEditInputChange}
+                    className="edit-input"
+                  />
+                </div>
+                
+                <div className="form-group full-width">
+                  <label>Event Name</label>
+                  <input
+                    type="text"
+                    name="eventName"
+                    value={editFormData.eventName}
+                    onChange={handleEditInputChange}
+                    className="edit-input"
+                  />
+                </div>
+              </div>
+              
+              <div className="modal-actions">
+                <button 
+                  type="submit" 
+                  className="save-edit-btn"
+                  disabled={editLoading}
+                >
+                  {editLoading ? 'Saving...' : '💾 Save Changes'}
+                </button>
+                <button 
+                  type="button" 
+                  className="modal-close-btn"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ DELETE CONFIRMATION MODAL */}
+      {showDeleteModal && deleteTarget && (
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal-content delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
+            <h2>⚠️ Confirm Deletion</h2>
+            
+            {deleteType === 'registration' && (
+              <>
+                <p>Are you sure you want to delete this registration?</p>
+                <div className="delete-info">
+                  <p><strong>Name:</strong> {deleteTarget.userName}</p>
+                  <p><strong>Email:</strong> {deleteTarget.userEmail}</p>
+                  <p><strong>Reference:</strong> {deleteTarget.referenceNumber}</p>
+                </div>
+                <p className="delete-warning">⚠️ This action cannot be undone!</p>
+              </>
+            )}
+            
+            {deleteType === 'user' && (
+              <>
+                <p>Are you sure you want to delete this user?</p>
+                <div className="delete-info">
+                  <p><strong>Name:</strong> {deleteTarget.displayName}</p>
+                  <p><strong>Email:</strong> {deleteTarget.email}</p>
+                  <p><strong>Registrations:</strong> {deleteTarget.registrationCount || 0}</p>
+                </div>
+                <p className="delete-warning">⚠️ This will permanently delete the user and all their data!</p>
+              </>
+            )}
+            
+            <div className="modal-actions">
+              <button 
+                className="confirm-delete-btn"
+                onClick={confirmDelete}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting...' : '🗑️ Yes, Delete'}
+              </button>
+              <button 
+                className="modal-close-btn"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default AdminDashboard;
+export default SuperAdminDashboard;

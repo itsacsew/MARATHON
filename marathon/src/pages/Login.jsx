@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   signInWithPopup, 
   GoogleAuthProvider,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword  // ✅ IMPORTANT
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -26,6 +27,10 @@ import guide7 from '../assets/guide/7.jpg';
 import guide8 from '../assets/guide/8.jpg';
 import guide9 from '../assets/guide/9.jpg';
 import guide10 from '../assets/guide/10.jpg';
+
+// HARD CODED SUPER ADMIN CREDENTIALS
+const SUPER_ADMIN_EMAIL = 'superadmin@gmail.com';
+const SUPER_ADMIN_PASSWORD = 'SuperAdmin123';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -69,14 +74,104 @@ const Login = () => {
     setCurrentStep(0);
   };
 
-  // Handle email/password login - NO VERIFICATION CHECK
+  // ✅ FIXED: Handle email/password login with Super Admin auto-creation
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Sign in with email and password
+      // ✅ CHECK FOR SUPER ADMIN FIRST
+      if (email.trim() === SUPER_ADMIN_EMAIL && password.trim() === SUPER_ADMIN_PASSWORD) {
+        console.log('🔐 Super Admin login detected...');
+        
+        try {
+          // Try to sign in first
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          
+          // Ensure super admin exists in Firestore
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              uid: user.uid,
+              email: user.email,
+              displayName: 'Super Admin',
+              isAdmin: true,
+              isSuperAdmin: true,
+              createdAt: new Date().toISOString(),
+              registrations: []
+            });
+            console.log('✅ Super Admin created in Firestore');
+          } else {
+            const data = userSnap.data();
+            if (!data.isSuperAdmin) {
+              await setDoc(userRef, {
+                isAdmin: true,
+                isSuperAdmin: true
+              }, { merge: true });
+              console.log('✅ User updated to Super Admin');
+            }
+          }
+
+          const userData = await getUserData(user.uid);
+          if (userData?.isSuperAdmin) {
+            navigate('/super-admin');
+          } else {
+            navigate('/dashboard');
+          }
+          setLoading(false);
+          return;
+          
+        } catch (signInError) {
+          // ✅ If user doesn't exist in Firebase Auth, CREATE THEM
+          if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
+            console.log('🆕 Super Admin not found, creating account...');
+            
+            try {
+              // Create the super admin account
+              const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+              const user = userCredential.user;
+              
+              // Create Firestore document
+              await setDoc(doc(db, 'users', user.uid), {
+                uid: user.uid,
+                email: user.email,
+                displayName: 'Super Admin',
+                isAdmin: true,
+                isSuperAdmin: true,
+                createdAt: new Date().toISOString(),
+                registrations: []
+              });
+              
+              console.log('✅ Super Admin account created successfully!');
+              
+              const userData = await getUserData(user.uid);
+              if (userData?.isSuperAdmin) {
+                navigate('/super-admin');
+              } else {
+                navigate('/dashboard');
+              }
+              setLoading(false);
+              return;
+              
+            } catch (createError) {
+              console.error('❌ Error creating Super Admin:', createError);
+              setError('Failed to create Super Admin account: ' + createError.message);
+              setLoading(false);
+              return;
+            }
+          }
+          
+          // Other error
+          throw signInError;
+        }
+      }
+
+      // ✅ REGULAR USER LOGIN
+      console.log('👤 Regular user login...');
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
@@ -84,13 +179,13 @@ const Login = () => {
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
-      // If user doesn't exist in Firestore, create them
       if (!userSnap.exists()) {
         const newUserData = {
           uid: user.uid,
           email: user.email,
           displayName: user.displayName || email.split('@')[0],
           isAdmin: false,
+          isSuperAdmin: false,
           createdAt: new Date().toISOString(),
           registrations: [],
           authProvider: 'email',
@@ -100,21 +195,23 @@ const Login = () => {
         console.log('✅ New user created in Firestore:', user.email);
       }
 
-      // Get user data and navigate (NO EMAIL VERIFICATION CHECK)
       const userData = await getUserData(user.uid);
-      if (userData?.isAdmin) {
+      if (userData?.isSuperAdmin) {
+        navigate('/super-admin');
+      } else if (userData?.isAdmin) {
         navigate('/admin');
       } else {
         navigate('/dashboard');
       }
+      
     } catch (error) {
+      console.error('❌ Login error:', error);
       setError('Wrong username or password');
-      console.error(error);
     }
     setLoading(false);
   };
 
-  // Handle Google Sign-In with automatic Firestore user creation
+  // Handle Google Sign-In
   const handleGoogleSignIn = async () => {
     setError('');
     setLoading(true);
@@ -124,18 +221,17 @@ const Login = () => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Check if user exists in Firestore, if not, create them
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // Create new user document in Firestore
         const newUserData = {
           uid: user.uid,
           email: user.email,
           displayName: user.displayName || 'Google User',
           photoURL: user.photoURL || '',
           isAdmin: false,
+          isSuperAdmin: false,
           createdAt: new Date().toISOString(),
           registrations: [],
           authProvider: 'google',
@@ -145,7 +241,6 @@ const Login = () => {
         await setDoc(userRef, newUserData);
         console.log('✅ New Google user created in Firestore:', user.email);
       } else {
-        // User exists, update their display name if changed
         const existingData = userSnap.data();
         if (existingData.displayName !== user.displayName) {
           await setDoc(userRef, { 
@@ -156,9 +251,10 @@ const Login = () => {
         }
       }
 
-      // Get user data and navigate
       const userData = await getUserData(user.uid);
-      if (userData?.isAdmin) {
+      if (userData?.isSuperAdmin) {
+        navigate('/super-admin');
+      } else if (userData?.isAdmin) {
         navigate('/admin');
       } else {
         navigate('/dashboard');
@@ -184,7 +280,7 @@ const Login = () => {
               onClick={() => setShowHelpModal(true)}
               title="Registration Guide"
             >
-              ❓
+              ?
             </button>
           </div>
         </div>
@@ -223,6 +319,7 @@ const Login = () => {
           </button>
         </form>
 
+
         <p style={styles.linkText}>
           Don't have an account? <Link to="/register" style={styles.link}>Sign Up</Link>
         </p>
@@ -238,7 +335,6 @@ const Login = () => {
             </div>
 
             <div style={styles.modalBody}>
-              {/* Step Indicator */}
               <div style={styles.stepIndicator}>
                 <span style={styles.stepNumber}>Step {currentStep + 1} of {guideSteps.length}</span>
                 <div style={styles.progressBar}>
@@ -251,7 +347,6 @@ const Login = () => {
                 </div>
               </div>
 
-              {/* Step Image */}
               <div style={styles.stepImageContainer}>
                 <img 
                   src={guideSteps[currentStep].image} 
@@ -260,13 +355,11 @@ const Login = () => {
                 />
               </div>
 
-              {/* Step Title & Description */}
               <div style={styles.stepInfo}>
                 <h4 style={styles.stepTitle}>{guideSteps[currentStep].title}</h4>
                 <p style={styles.stepDescription}>{guideSteps[currentStep].description}</p>
               </div>
 
-              {/* Navigation Buttons */}
               <div style={styles.modalNav}>
                 <button 
                   onClick={prevStep} 
@@ -290,7 +383,6 @@ const Login = () => {
                 </button>
               </div>
 
-              {/* Close Button at Bottom */}
               <button style={styles.modalCloseBottom} onClick={closeModal}>
                 Close Guide
               </button>
@@ -366,8 +458,8 @@ const styles = {
     color: 'white',
     border: `2px solid ${colors.yellow}`,
     borderRadius: '50%',
-    width: '32px',
-    height: '32px',
+    width: '30px',
+    height: '30px',
     fontSize: '16px',
     display: 'flex',
     alignItems: 'center',
@@ -441,6 +533,22 @@ const styles = {
     boxShadow: `0 8px 20px ${colors.teal}50, 0 0 0 2px ${colors.yellow}30`,
     transition: 'all 0.2s ease',
     marginTop: '8px',
+  },
+  googleButton: {
+    width: '100%',
+    padding: '14px 20px',
+    borderRadius: '40px',
+    border: `2px solid ${colors.darkBlue}40`,
+    background: 'white',
+    color: colors.darkBlue,
+    fontWeight: 600,
+    fontSize: '1rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    marginTop: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   linkText: {
     textAlign: 'center',

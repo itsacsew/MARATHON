@@ -359,6 +359,9 @@ const RegistrationForm = ({ onRegistrationSuccess }) => {
   };
 
   const handleBackToCategory = () => {
+    // Close event modal
+    setIsEventModalOpen(false);
+    // Reset category and event selection
     setSelectedCategory(null);
     setSelectedEvent(null);
     setFormData({
@@ -366,10 +369,9 @@ const RegistrationForm = ({ onRegistrationSuccess }) => {
       category: '',
       event: ''
     });
-    setIsEditing(false);
     setShowCategoryStep(false);
+    // Open category modal
     setIsCategoryModalOpen(true);
-    setIsSummaryModalOpen(false);
   };
 
   const handleBackToEvent = () => {
@@ -696,7 +698,7 @@ const RegistrationForm = ({ onRegistrationSuccess }) => {
         document.body
       )}
 
-      {/* Event Modal */}
+      {/* Event Modal - FIXED: Added onBackToCategory prop */}
       {selectedCategoryData && ReactDOM.createPortal(
         <EventModal
           isOpen={isEventModalOpen}
@@ -707,6 +709,7 @@ const RegistrationForm = ({ onRegistrationSuccess }) => {
           onProceed={handleEventProceed}
           categoryName={selectedCategoryData.name}
           isEditing={isEditing}
+          onBackToCategory={handleBackToCategory}  // ✅ ADD THIS PROP
         />,
         document.body
       )}

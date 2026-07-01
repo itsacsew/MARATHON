@@ -11,6 +11,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterDistance, setFilterDistance] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
   const [selectedRegistration, setSelectedRegistration] = useState(null);
@@ -28,7 +29,38 @@ const AdminDashboard = () => {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateNames, setDuplicateNames] = useState([]);
   const [hasDuplicates, setHasDuplicates] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({});
   const navigate = useNavigate();
+
+  // ✅ Helper function to get receipt count from registration
+  const getReceiptCount = (registration) => {
+    if (!registration) return 0;
+    
+    if (registration.receiptPreviews && Array.isArray(registration.receiptPreviews)) {
+      return registration.receiptPreviews.filter(img => img).length;
+    }
+    if (registration.receiptUrls && Array.isArray(registration.receiptUrls)) {
+      return registration.receiptUrls.filter(img => img).length;
+    }
+    if (registration.receiptImages && Array.isArray(registration.receiptImages)) {
+      return registration.receiptImages.filter(img => img).length;
+    }
+    if (registration.receipts && typeof registration.receipts === 'object') {
+      return Object.values(registration.receipts).filter(img => img).length;
+    }
+    if (registration.receiptPreview && typeof registration.receiptPreview === 'string') {
+      return 1;
+    }
+    if (registration.receiptUrl && typeof registration.receiptUrl === 'string') {
+      return 1;
+    }
+    if (registration.receiptFileName && typeof registration.receiptFileName === 'string') {
+      return 1;
+    }
+    
+    return 0;
+  };
 
   const fetchAllData = useCallback(async () => {
     try {
@@ -108,37 +140,24 @@ const AdminDashboard = () => {
   const getReceiptImages = (registration) => {
     if (!registration) return [];
     
-    // Check for receiptPreviews array (from Dashboard.jsx)
     if (registration.receiptPreviews && Array.isArray(registration.receiptPreviews) && registration.receiptPreviews.length > 0) {
       return registration.receiptPreviews.filter(img => img);
     }
-    
-    // Check for receiptUrls array
     if (registration.receiptUrls && Array.isArray(registration.receiptUrls)) {
       return registration.receiptUrls.filter(img => img);
     }
-    
-    // Check for receiptImages array
     if (registration.receiptImages && Array.isArray(registration.receiptImages)) {
       return registration.receiptImages.filter(img => img);
     }
-    
-    // Check for receipts object (Firestore map)
     if (registration.receipts && typeof registration.receipts === 'object') {
       return Object.values(registration.receipts).filter(img => img);
     }
-    
-    // Check for receiptPreview (single image)
     if (registration.receiptPreview && typeof registration.receiptPreview === 'string') {
       return [registration.receiptPreview];
     }
-    
-    // Check for receiptUrl (single image)
     if (registration.receiptUrl && typeof registration.receiptUrl === 'string') {
       return [registration.receiptUrl];
     }
-    
-    // Check for receiptFileName (might be a string)
     if (registration.receiptFileName && typeof registration.receiptFileName === 'string') {
       return [registration.receiptFileName];
     }
@@ -146,7 +165,6 @@ const AdminDashboard = () => {
     return [];
   };
 
-  // ✅ Handle receipt click for multiple images - SAME AS SUCCESSMODAL
   const handleReceiptClick = (images) => {
     let imageArray = [];
     if (Array.isArray(images)) {
@@ -286,7 +304,8 @@ const AdminDashboard = () => {
       'FEE (₱)',
       'PAYMENT METHOD',
       'STATUS',
-      'REGISTRATION DATE'
+      'REGISTRATION DATE',
+      'NO. OF RECEIPTS'
     ]);
 
     const categoryOrder = { 'open': 1, 'masters': 2, 'liloan': 3 };
@@ -319,7 +338,8 @@ const AdminDashboard = () => {
           reg.fee || 0,
           reg.paymentMethod?.toUpperCase() || 'N/A',
           reg.status || 'N/A',
-          reg.registeredAt ? new Date(reg.registeredAt).toLocaleString('en-PH') : 'N/A'
+          reg.registeredAt ? new Date(reg.registeredAt).toLocaleString('en-PH') : 'N/A',
+          getReceiptCount(reg)
         ]);
       });
     });
@@ -372,7 +392,8 @@ const AdminDashboard = () => {
       { wch: 15 },
       { wch: 18 },
       { wch: 15 },
-      { wch: 25 }
+      { wch: 25 },
+      { wch: 15 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Registrations');
@@ -389,10 +410,11 @@ const AdminDashboard = () => {
     const distStr = distance.toString().toLowerCase();
     if (distStr.includes('3k') || distStr.includes('3 km')) return 1;
     if (distStr.includes('5k') || distStr.includes('5 km')) return 2;
-    if (distStr.includes('10k') || distStr.includes('10 km')) return 3;
-    if (distStr.includes('16k') || distStr.includes('16 km')) return 4;
-    if (distStr.includes('21k') || distStr.includes('21 km')) return 5;
-    if (distStr.includes('42k') || distStr.includes('42 km')) return 6;
+    if (distStr.includes('6k') || distStr.includes('6 km')) return 3;
+    if (distStr.includes('10k') || distStr.includes('10 km')) return 4;
+    if (distStr.includes('16k') || distStr.includes('16 km')) return 5;
+    if (distStr.includes('21k') || distStr.includes('21 km')) return 6;
+    if (distStr.includes('42k') || distStr.includes('42 km')) return 7;
     return 99;
   };
 
@@ -448,6 +470,33 @@ const AdminDashboard = () => {
     return Array.from(dates).sort((a, b) => b.localeCompare(a));
   };
 
+  // ✅ Get grouped filter options by category
+  const getGroupedFilterOptions = () => {
+    const categoryMap = {
+      'open': { label: 'OPEN CATEGORY', distances: new Set(), icon: '📁' },
+      'masters': { label: "40 UPPER'S/MASTER'S", distances: new Set(), icon: '📁' },
+      'liloan': { label: 'LILOAN ONLY', distances: new Set(), icon: '📁' }
+    };
+
+    registrations.forEach(reg => {
+      const catId = reg.categoryId?.toLowerCase();
+      if (catId && categoryMap[catId]) {
+        if (reg.distance) {
+          categoryMap[catId].distances.add(reg.distance);
+        }
+      }
+    });
+
+    // Sort distances for each category
+    Object.keys(categoryMap).forEach(key => {
+      categoryMap[key].distances = Array.from(categoryMap[key].distances).sort((a, b) => {
+        return getDistanceOrder(a) - getDistanceOrder(b);
+      });
+    });
+
+    return categoryMap;
+  };
+
   const getFilteredAndSortedRegistrations = () => {
     const filtered = registrations.filter(reg => {
       const matchesSearch = 
@@ -459,7 +508,21 @@ const AdminDashboard = () => {
         reg.shirtSize?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         reg.homeAddress?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesCategory = filterCategory === 'all' || reg.categoryId === filterCategory;
+      // ✅ Filter by category + distance
+      let matchesCategoryAndDistance = true;
+      if (filterCategory !== 'all') {
+        // Check if filter includes distance (format: categoryId-distance)
+        if (filterCategory.includes('-')) {
+          const [catId, distance] = filterCategory.split('-');
+          const regCatId = reg.categoryId?.toLowerCase();
+          const regDistance = reg.distance;
+          matchesCategoryAndDistance = regCatId === catId && regDistance === distance;
+        } else {
+          // Filter by category only
+          matchesCategoryAndDistance = reg.categoryId?.toLowerCase() === filterCategory;
+        }
+      }
+
       const matchesGender = filterGender === 'all' || reg.gender === filterGender;
       
       let matchesDate = true;
@@ -472,7 +535,7 @@ const AdminDashboard = () => {
         }
       }
       
-      return matchesSearch && matchesCategory && matchesGender && matchesDate;
+      return matchesSearch && matchesCategoryAndDistance && matchesGender && matchesDate;
     });
 
     if (sortBy === 'date') {
@@ -588,6 +651,47 @@ const AdminDashboard = () => {
     setCurrentPage(1);
   };
 
+  // ✅ Get display label for selected filter
+  const getSelectedFilterLabel = () => {
+    if (filterCategory === 'all') return '📋 ALL CATEGORIES';
+    
+    const groupedOptions = getGroupedFilterOptions();
+    if (filterCategory.includes('-')) {
+      const [catId, distance] = filterCategory.split('-');
+      const catLabel = groupedOptions[catId]?.label || catId;
+      return `${catLabel} → ${distance}`;
+    }
+    
+    const catLabel = groupedOptions[filterCategory]?.label || filterCategory;
+    return catLabel;
+  };
+
+  // ✅ Handle filter selection
+  const handleFilterSelect = (value) => {
+    setFilterCategory(value);
+    setShowDropdown(false);
+    setCurrentPage(1);
+  };
+
+  // ✅ Toggle category expansion
+  const toggleCategory = (catId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [catId]: !prev[catId]
+    }));
+  };
+
+  // ✅ Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDropdown && !event.target.closest('.custom-dropdown')) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showDropdown]);
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -650,6 +754,9 @@ const AdminDashboard = () => {
       </div>
     );
   };
+
+  // ✅ Grouped filter options
+  const groupedOptions = getGroupedFilterOptions();
 
   return (
     <div className="admin-dashboard">
@@ -773,21 +880,88 @@ const AdminDashboard = () => {
 
             {activeTab === 'registrations' && (
               <>
-                <div className="filter-box">
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="filter-select"
+                {/* ✅ Drupal-Style Grouped Dropdown */}
+                <div className="custom-dropdown">
+                  <button 
+                    className="dropdown-trigger"
+                    onClick={() => setShowDropdown(!showDropdown)}
                   >
-                    <option value="all">ALL CATEGORIES</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>
-                        {cat === 'open' ? 'OPEN CATEGORY' : 
-                         cat === 'masters' ? "40 UPPER'S/MASTER'S" : 
-                         'LILOAN ONLY'}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="dropdown-label">{getSelectedFilterLabel()}</span>
+                    <span className="dropdown-arrow">{showDropdown ? '▲' : '▼'}</span>
+                  </button>
+                  
+                  {showDropdown && (
+                    <div className="dropdown-menu">
+                      {/* All Categories option */}
+                      <div 
+                        className={`dropdown-item all-categories ${filterCategory === 'all' ? 'active' : ''}`}
+                        onClick={() => handleFilterSelect('all')}
+                      >
+                        <span className="item-icon">📋</span>
+                        <span className="item-label">ALL CATEGORIES</span>
+                        <span className="item-count">{registrations.length}</span>
+                      </div>
+                      
+                      <div className="dropdown-divider"></div>
+                      
+                      {Object.keys(groupedOptions).map(catId => {
+                        const category = groupedOptions[catId];
+                        const isCategoryActive = filterCategory === catId;
+                        const hasDistances = category.distances.length > 0;
+                        const categoryCount = registrations.filter(r => r.categoryId?.toLowerCase() === catId).length;
+                        const isExpanded = expandedCategories[catId] || false;
+                        
+                        return (
+                          <div key={catId} className="dropdown-group">
+                            <div 
+                              className={`dropdown-category ${isCategoryActive ? 'active' : ''}`}
+                              onClick={() => {
+                                if (hasDistances) {
+                                  toggleCategory(catId);
+                                } else {
+                                  handleFilterSelect(catId);
+                                }
+                              }}
+                              onDoubleClick={() => handleFilterSelect(catId)}
+                            >
+                              <span className="category-expand-icon">
+                                {hasDistances && (isExpanded ? '▾' : '▸')}
+                              </span>
+                              <span className="category-icon">📁</span>
+                              <span className="category-label">{category.label}</span>
+                              <span className="category-count">{categoryCount}</span>
+                            </div>
+                            
+                            {hasDistances && isExpanded && (
+                              <div className="dropdown-distances">
+                                {category.distances.map(distance => {
+                                  const value = `${catId}-${distance}`;
+                                  const isActive = filterCategory === value;
+                                  const count = registrations.filter(r => 
+                                    r.categoryId?.toLowerCase() === catId && 
+                                    r.distance === distance
+                                  ).length;
+                                  
+                                  return (
+                                    <div 
+                                      key={value}
+                                      className={`dropdown-item distance-item ${isActive ? 'active' : ''}`}
+                                      onClick={() => handleFilterSelect(value)}
+                                    >
+                                      <span className="distance-indent"></span>
+                                      <span className="distance-bullet">•</span>
+                                      <span className="item-label">{distance}</span>
+                                      <span className="item-count">{count}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="filter-box">
@@ -860,19 +1034,21 @@ const AdminDashboard = () => {
                           </span>
                         )}
                       </th>
+                      <th>Receipts</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentPageData.length === 0 ? (
                       <tr>
-                        <td colSpan="15" className="no-data">
+                        <td colSpan="16" className="no-data">
                           No registrations found
                         </td>
                       </tr>
                     ) : (
                       currentPageData.map((reg, index) => {
                         const realIndex = ((currentPage - 1) * rowsPerPage) + index + 1;
+                        const receiptCount = getReceiptCount(reg);
                         return (
                           <tr key={reg.id || index}>
                             <td>{realIndex}</td>
@@ -918,6 +1094,21 @@ const AdminDashboard = () => {
                             </td>
                             <td className="date-cell">
                               {reg.registeredAt ? formatDisplayDate(reg.registeredAt) : 'N/A'}
+                            </td>
+                            <td>
+                              <button 
+                                className={`receipt-count-btn ${receiptCount > 0 ? 'has-receipt' : 'no-receipt'}`}
+                                onClick={() => {
+                                  if (receiptCount > 0) {
+                                    const images = getReceiptImages(reg);
+                                    handleReceiptClick(images);
+                                  }
+                                }}
+                                title={receiptCount > 0 ? `Click to view ${receiptCount} receipt(s)` : 'No receipts uploaded'}
+                                disabled={receiptCount === 0}
+                              >
+                                {receiptCount > 0 ? `📷 ${receiptCount}` : '📷 0'}
+                              </button>
                             </td>
                             <td>
                               <div className="action-buttons">
@@ -1079,7 +1270,7 @@ const AdminDashboard = () => {
                 <span className="small-text">{selectedRegistration.receiptFileName || 'N/A'}</span>
               </div>
               
-              {/* ✅ RECEIPT PREVIEW SECTION - SAME LAYOUT AS SUCCESSMODAL */}
+              {/* ✅ RECEIPT PREVIEW SECTION */}
               <div className="detail-item full-width">
                 <label>Receipt Preview</label>
                 {(() => {
@@ -1089,7 +1280,6 @@ const AdminDashboard = () => {
                     return <span>No receipt uploaded</span>;
                   }
                   
-                  // ✅ SINGLE IMAGE - SAME AS SUCCESSMODAL
                   if (images.length === 1) {
                     return (
                       <div 
@@ -1141,7 +1331,6 @@ const AdminDashboard = () => {
                     );
                   }
                   
-                  // ✅ MULTIPLE IMAGES - SAME GRID AS SUCCESSMODAL
                   return (
                     <div className="receipt-grid-container">
                       <div className="receipt-grid" style={{
@@ -1261,7 +1450,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ✅ RECEIPT MODAL - SAME AS SUCCESSMODAL */}
+      {/* ✅ RECEIPT MODAL */}
       {showReceiptModal && receiptImages.length > 0 && (
         <div className="modal-overlay receipt-modal-overlay" onClick={handleCloseReceiptModal}>
           <div className="modal-content receipt-modal-content" onClick={(e) => e.stopPropagation()} style={{
